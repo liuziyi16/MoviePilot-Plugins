@@ -50,7 +50,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.0.3"
+    plugin_version = "1.0.4"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -125,10 +125,10 @@ class SeedStats(_PluginBase):
 
     # ---------- Vue 渲染与侧栏入口声明 ----------
 
-    @staticmethod
-    def get_render_mode() -> Tuple[str, str]:
-        """声明使用 Vue 联邦组件渲染。"""
-        return "vue", "dist/assets"
+    @classmethod
+    def get_render_mode(cls) -> Tuple[str, str]:
+        """声明使用 Vue 联邦组件渲染。dist 路径随版本变化, 避免浏览器缓存旧界面。"""
+        return "vue", f"dist/v{cls.plugin_version}/assets"
 
     def get_sidebar_nav(self) -> List[Dict[str, Any]]:
         """将本插件主页面注册到主界面侧栏(全页入口)。"""

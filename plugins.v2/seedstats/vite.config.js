@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import federation from '@originjs/vite-plugin-federation'
+import pkg from './package.json'
 
 export default defineConfig({
   plugins: [
@@ -36,7 +37,10 @@ export default defineConfig({
     target: 'esnext',
     minify: false,
     cssCodeSplit: true,
-    outDir: 'dist',
+    // dist/<版本>/assets: remoteEntry.js 的 URL 随版本变化, 强制浏览器拉新, 避免更新后仍用缓存旧界面
+    // (vite 默认 assetsDir='assets' 会把产物放进 dist/vX/assets/, 与 get_render_mode 返回路径保持一致)
+    outDir: `dist/v${pkg.version}`,
+    emptyOutDir: true,
   },
   css: {
     postcss: {

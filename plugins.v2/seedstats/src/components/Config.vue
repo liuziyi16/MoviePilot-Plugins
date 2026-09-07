@@ -114,12 +114,17 @@ onMounted(async () => {
 async function loadDownloaders() {
   try {
     loadingDownloaders.value = true
-    const res = await props.api.get('plugin/core/services?type=downloader')
-    const list = Array.isArray(res) ? res : (res?.data ?? [])
-    downloaderOptions.value = list.map(x => ({
-      title: x.name || x.title || x.id || String(x),
-      value: x.id || x.value || x.name || String(x),
-    }))
+    // MP v2 下载器配置存于 system/setting/Downloaders: {success, data: {value: [{name, type, enabled}]}}
+    const res = await props.api.get('system/setting/Downloaders')
+    const raw = Array.isArray(res)
+      ? res
+      : (Array.isArray(res?.data?.value) ? res.data.value : (Array.isArray(res?.data) ? res.data : []))
+    downloaderOptions.value = raw
+      .filter(x => x && x.enabled !== false)
+      .map(x => ({
+        title: x.name || x.title || x.type || String(x),
+        value: x.name || x.value || x.id || String(x),
+      }))
   } catch (e) {
     console.error('获取下载器列表失败:', e)
   } finally {
