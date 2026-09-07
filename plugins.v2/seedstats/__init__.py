@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -50,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.0.6"
+    plugin_version = "1.0.7"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -436,7 +437,7 @@ class SeedStats(_PluginBase):
                 site, _, suffixes = line.partition(":")
                 key = site.strip().lower()
                 result[key] = {}
-                for suf in suffixes.split(","):
+                for suf in re.split(r"[,;，]+", suffixes):
                     suf = suf.strip().upper()
                     if suf:
                         result[key][suf] = site.strip()
@@ -450,7 +451,7 @@ class SeedStats(_PluginBase):
             if ":" in line:
                 site, _, domains = line.partition(":")
                 result[site.strip()] = {
-                    d.strip().lower() for d in domains.split(",") if d.strip()
+                    d.strip().lower() for d in re.split(r"[,;，]+", domains) if d.strip()
                 }
         return result
 

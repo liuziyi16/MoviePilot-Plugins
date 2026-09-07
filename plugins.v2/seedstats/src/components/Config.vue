@@ -48,8 +48,12 @@
             <tbody>
               <tr v-for="(r, i) in suffixRules" :key="'sf' + i">
                 <td class="text-body-2">{{ r.site }}</td>
-                <td class="text-body-2 text-medium-emphasis">{{ r.value }}</td>
-                <td class="text-right" style="width: 44px;">
+                <td class="text-body-2 text-medium-emphasis">{{ r.values.join(';') }}</td>
+                <td class="text-right" style="width: 72px; white-space: nowrap;">
+                  <v-btn icon size="x-small" variant="text" @click="openRuleDlg('suffix', i)">
+                    <v-icon size="small">mdi-pencil-outline</v-icon>
+                    <v-tooltip activator="parent" location="top">编辑</v-tooltip>
+                  </v-btn>
                   <v-btn icon size="x-small" variant="text" color="error" @click="suffixRules.splice(i, 1)">
                     <v-icon size="small">mdi-delete-outline</v-icon>
                     <v-tooltip activator="parent" location="top">删除</v-tooltip>
@@ -76,8 +80,12 @@
             <tbody>
               <tr v-for="(r, i) in domainRules" :key="'dm' + i">
                 <td class="text-body-2">{{ r.site }}</td>
-                <td class="text-body-2 text-medium-emphasis">{{ r.value }}</td>
-                <td class="text-right" style="width: 44px;">
+                <td class="text-body-2 text-medium-emphasis">{{ r.values.join(';') }}</td>
+                <td class="text-right" style="width: 72px; white-space: nowrap;">
+                  <v-btn icon size="x-small" variant="text" @click="openRuleDlg('domain', i)">
+                    <v-icon size="small">mdi-pencil-outline</v-icon>
+                    <v-tooltip activator="parent" location="top">编辑</v-tooltip>
+                  </v-btn>
                   <v-btn icon size="x-small" variant="text" color="error" @click="domainRules.splice(i, 1)">
                     <v-icon size="small">mdi-delete-outline</v-icon>
                     <v-tooltip activator="parent" location="top">删除</v-tooltip>
@@ -119,19 +127,32 @@
     <v-dialog v-model="ruleDlg.show" max-width="430">
       <v-card>
         <v-card-title class="text-subtitle-1 font-weight-bold">
-          {{ ruleDlg.type === 'suffix' ? '新增官组后缀' : '新增站点域名' }}
+          {{ (ruleDlg.editingIndex !== null ? '编辑' : '新增') + (ruleDlg.type === 'suffix' ? '官组后缀' : '站点域名') }}
         </v-card-title>
         <v-card-text>
           <v-combobox v-model="ruleDlg.site" :items="siteOptions" :loading="loadingSites" label="站点名称"
             variant="outlined" hint="可从站点库下拉选择, 也可手动输入别名" persistent-hint />
-          <v-text-field v-model="ruleDlg.value" class="mt-3" variant="outlined"
-            :label="ruleDlg.type === 'suffix' ? '官组后缀(不区分大小写)' : '补充域名(可多个, 逗号分隔)'"
-            :placeholder="ruleDlg.type === 'suffix' ? '如 CHD' : '如 pt.example.net'" />
+          <div v-for="(v, i) in ruleDlg.values" :key="'val' + i" class="d-flex align-center mt-2">
+            <v-text-field v-model="ruleDlg.values[i]" variant="outlined" density="comfortable" hide-details
+              :label="i === 0 ? (ruleDlg.type === 'suffix' ? '官组后缀(不区分大小写)' : '补充域名') : ''"
+              :placeholder="ruleDlg.type === 'suffix' ? '如 CHD' : '如 pt.example.net'" />
+            <v-btn icon size="x-small" variant="text" color="primary" class="ml-1 flex-grow-0"
+              @click="ruleDlg.values.splice(i + 1, 0, '')">
+              <v-icon>mdi-plus</v-icon>
+              <v-tooltip activator="parent" location="top">加一项</v-tooltip>
+            </v-btn>
+            <v-btn icon size="x-small" variant="text" color="error" class="ml-1 flex-grow-0"
+              :disabled="ruleDlg.values.length <= 1" @click="ruleDlg.values.splice(i, 1)">
+              <v-icon>mdi-minus</v-icon>
+              <v-tooltip activator="parent" location="top">删除此项</v-tooltip>
+            </v-btn>
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="ruleDlg.show = false">取消</v-btn>
-          <v-btn color="primary" :disabled="!ruleDlg.site || !ruleDlg.value" @click="confirmRule">确定</v-btn>
+          <v-btn color="primary" :disabled="!ruleDlg.site || !ruleDlg.values.some(v => String(v || '').trim())"
+            @click="confirmRule">确定</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -168,14 +189,14 @@ const error = ref(null)
 const snackbar = reactive({ show: false, text: '', color: 'success' })
 const downloaderOptions = ref([])
 const loadingDownloaders = ref(false)
-// 站点规则(结构化编辑, 保存时序列化回字符串): [{site, value}]
+// 站点规则(结构化编辑, 保存时序列化回字符串): [{site, values: []}] 一站点一行
 const suffixRules = ref([])
 const domainRules = ref([])
 const siteOptions = ref([])
 const loadingSites = ref(false)
-const ruleDlg = reactive({ show: false, type: 'suffix', site: '', value: '' })
+const ruleDlg = reactive({ show: false, type: 'suffix', site: '', values: [''], editingIndex: null })
 
-// '站点名:值1,值2' 多行文本 -> [{site, value}]（兼容中文逗号与竖线分隔）
+// '站点名:值1,值2' 多行文本 -> [{site, values[]}]（按站点合并, 兼容中文逗号与竖线分隔）
 function parseRules(str) {
   const out = []
   String(str || '').split(/\n+/).forEach(line => {
@@ -184,23 +205,25 @@ function parseRules(str) {
     const idx = s.indexOf(':')
     const site = s.slice(0, idx).trim()
     if (!site) return
-    s.slice(idx + 1).split(/[,，|]+/).forEach(v => {
-      v = v.trim()
-      if (v) out.push({ site, value: v })
-    })
+    const vals = s.slice(idx + 1).split(/[,，|]+/).map(v => v.trim()).filter(Boolean)
+    if (!vals.length) return
+    const exist = out.find(r => r.site.toLowerCase() === site.toLowerCase())
+    if (exist) exist.values.push(...vals)
+    else out.push({ site, values: vals })
   })
   return out
 }
 
-// [{site, value}] -> '站点名:值1,值2' 多行文本（同站点自动合并）
+// [{site, values[]}] -> '站点名:值1;值2' 多行文本（分号拼接; 后端兼容逗号/分号分隔）
 function serializeRules(rules) {
-  const map = {}
-  rules.forEach(r => {
-    const site = String(r.site || '').trim()
-    const val = String(r.value || '').trim()
-    if (site && val) (map[site] = map[site] || []).push(val)
-  })
-  return Object.entries(map).map(([site, vals]) => `${site}:${vals.join(',')}`).join('\n')
+  return rules
+    .map(r => {
+      const site = String(r.site || '').trim()
+      const vals = (r.values || []).map(v => String(v || '').trim()).filter(Boolean)
+      return site && vals.length ? `${site}:${vals.join(';')}` : ''
+    })
+    .filter(Boolean)
+    .join('\n')
 }
 
 // 站点库下拉选项(与 MP 站点名一致, 避免手输偏差)
@@ -217,21 +240,31 @@ async function loadSites() {
   }
 }
 
-function openRuleDlg(type) {
+// type: 'suffix' | 'domain'; index 非空 = 编辑已有行(数据载入弹框)
+function openRuleDlg(type, index = null) {
   ruleDlg.type = type
-  ruleDlg.site = ''
-  ruleDlg.value = ''
+  ruleDlg.editingIndex = index
+  if (index !== null) {
+    const row = (type === 'suffix' ? suffixRules : domainRules).value[index]
+    ruleDlg.site = row?.site || ''
+    ruleDlg.values = row?.values?.length ? [...row.values] : ['']
+  } else {
+    ruleDlg.site = ''
+    ruleDlg.values = ['']
+  }
   ruleDlg.show = true
 }
 
 function confirmRule() {
   const site = String(ruleDlg.site || '').trim()
-  if (!site) return
+  const values = ruleDlg.values.map(v => String(v || '').trim()).filter(Boolean)
+  if (!site || !values.length) return
   const target = ruleDlg.type === 'suffix' ? suffixRules : domainRules
-  String(ruleDlg.value || '').split(/[,，]+/).forEach(v => {
-    v = v.trim()
-    if (v) target.value.push({ site, value: v })
-  })
+  if (ruleDlg.editingIndex !== null) target.value.splice(ruleDlg.editingIndex, 1)
+  // 同站点(忽略大小写)合并去重
+  const exist = target.value.find(r => r.site.toLowerCase() === site.toLowerCase())
+  if (exist) exist.values = Array.from(new Set([...exist.values, ...values]))
+  else target.value.push({ site, values })
   ruleDlg.show = false
 }
 

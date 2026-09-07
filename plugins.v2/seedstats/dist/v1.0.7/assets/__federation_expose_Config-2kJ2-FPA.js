@@ -12,7 +12,7 @@ const _hoisted_3 = { class: "text-body-2" };
 const _hoisted_4 = { class: "text-body-2 text-medium-emphasis" };
 const _hoisted_5 = {
   class: "text-right",
-  style: {"width":"44px"}
+  style: {"width":"72px","white-space":"nowrap"}
 };
 const _hoisted_6 = {
   key: 1,
@@ -23,7 +23,7 @@ const _hoisted_8 = { class: "text-body-2" };
 const _hoisted_9 = { class: "text-body-2 text-medium-emphasis" };
 const _hoisted_10 = {
   class: "text-right",
-  style: {"width":"44px"}
+  style: {"width":"72px","white-space":"nowrap"}
 };
 const _hoisted_11 = {
   key: 1,
@@ -68,14 +68,14 @@ const error = ref(null);
 const snackbar = reactive({ show: false, text: '', color: 'success' });
 const downloaderOptions = ref([]);
 const loadingDownloaders = ref(false);
-// 站点规则(结构化编辑, 保存时序列化回字符串): [{site, value}]
+// 站点规则(结构化编辑, 保存时序列化回字符串): [{site, values: []}] 一站点一行
 const suffixRules = ref([]);
 const domainRules = ref([]);
 const siteOptions = ref([]);
 const loadingSites = ref(false);
-const ruleDlg = reactive({ show: false, type: 'suffix', site: '', value: '' });
+const ruleDlg = reactive({ show: false, type: 'suffix', site: '', values: [''], editingIndex: null });
 
-// '站点名:值1,值2' 多行文本 -> [{site, value}]（兼容中文逗号与竖线分隔）
+// '站点名:值1,值2' 多行文本 -> [{site, values[]}]（按站点合并, 兼容中文逗号与竖线分隔）
 function parseRules(str) {
   const out = [];
   String(str || '').split(/\n+/).forEach(line => {
@@ -84,23 +84,25 @@ function parseRules(str) {
     const idx = s.indexOf(':');
     const site = s.slice(0, idx).trim();
     if (!site) return
-    s.slice(idx + 1).split(/[,，|]+/).forEach(v => {
-      v = v.trim();
-      if (v) out.push({ site, value: v });
-    });
+    const vals = s.slice(idx + 1).split(/[,，|]+/).map(v => v.trim()).filter(Boolean);
+    if (!vals.length) return
+    const exist = out.find(r => r.site.toLowerCase() === site.toLowerCase());
+    if (exist) exist.values.push(...vals);
+    else out.push({ site, values: vals });
   });
   return out
 }
 
-// [{site, value}] -> '站点名:值1,值2' 多行文本（同站点自动合并）
+// [{site, values[]}] -> '站点名:值1;值2' 多行文本（分号拼接; 后端兼容逗号/分号分隔）
 function serializeRules(rules) {
-  const map = {};
-  rules.forEach(r => {
-    const site = String(r.site || '').trim();
-    const val = String(r.value || '').trim();
-    if (site && val) (map[site] = map[site] || []).push(val);
-  });
-  return Object.entries(map).map(([site, vals]) => `${site}:${vals.join(',')}`).join('\n')
+  return rules
+    .map(r => {
+      const site = String(r.site || '').trim();
+      const vals = (r.values || []).map(v => String(v || '').trim()).filter(Boolean);
+      return site && vals.length ? `${site}:${vals.join(';')}` : ''
+    })
+    .filter(Boolean)
+    .join('\n')
 }
 
 // 站点库下拉选项(与 MP 站点名一致, 避免手输偏差)
@@ -117,21 +119,31 @@ async function loadSites() {
   }
 }
 
-function openRuleDlg(type) {
+// type: 'suffix' | 'domain'; index 非空 = 编辑已有行(数据载入弹框)
+function openRuleDlg(type, index = null) {
   ruleDlg.type = type;
-  ruleDlg.site = '';
-  ruleDlg.value = '';
+  ruleDlg.editingIndex = index;
+  if (index !== null) {
+    const row = (type === 'suffix' ? suffixRules : domainRules).value[index];
+    ruleDlg.site = row?.site || '';
+    ruleDlg.values = row?.values?.length ? [...row.values] : [''];
+  } else {
+    ruleDlg.site = '';
+    ruleDlg.values = [''];
+  }
   ruleDlg.show = true;
 }
 
 function confirmRule() {
   const site = String(ruleDlg.site || '').trim();
-  if (!site) return
+  const values = ruleDlg.values.map(v => String(v || '').trim()).filter(Boolean);
+  if (!site || !values.length) return
   const target = ruleDlg.type === 'suffix' ? suffixRules : domainRules;
-  String(ruleDlg.value || '').split(/[,，]+/).forEach(v => {
-    v = v.trim();
-    if (v) target.value.push({ site, value: v });
-  });
+  if (ruleDlg.editingIndex !== null) target.value.splice(ruleDlg.editingIndex, 1);
+  // 同站点(忽略大小写)合并去重
+  const exist = target.value.find(r => r.site.toLowerCase() === site.toLowerCase());
+  if (exist) exist.values = Array.from(new Set([...exist.values, ...values]));
+  else target.value.push({ site, values });
   ruleDlg.show = false;
 }
 
@@ -227,7 +239,7 @@ return (_ctx, _cache) => {
           _: 1
         }))
       : _createCommentVNode("", true),
-    _cache[32] || (_cache[32] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-2 mb-2" }, "基本设置", -1)),
+    _cache[39] || (_cache[39] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-2 mb-2" }, "基本设置", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -283,7 +295,7 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _cache[33] || (_cache[33] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "调度周期 (5段cron, 宿主时区)", -1)),
+    _cache[40] || (_cache[40] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "调度周期 (5段cron, 宿主时区)", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -323,7 +335,7 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _cache[34] || (_cache[34] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "下载器与站点", -1)),
+    _cache[41] || (_cache[41] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "下载器与站点", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, { cols: "12" }, {
@@ -352,7 +364,7 @@ return (_ctx, _cache) => {
         }, {
           default: _withCtx(() => [
             _createElementVNode("div", _hoisted_2, [
-              _cache[18] || (_cache[18] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点官方后缀 (判定官组)", -1)),
+              _cache[17] || (_cache[17] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点官方后缀 (判定官组)", -1)),
               _createVNode(_component_v_spacer),
               _createVNode(_component_v_btn, {
                 size: "x-small",
@@ -361,7 +373,7 @@ return (_ctx, _cache) => {
                 "prepend-icon": "mdi-plus",
                 onClick: _cache[6] || (_cache[6] = $event => (openRuleDlg('suffix')))
               }, {
-                default: _withCtx(() => [...(_cache[17] || (_cache[17] = [
+                default: _withCtx(() => [...(_cache[16] || (_cache[16] = [
                   _createTextVNode("新增", -1)
                 ]))]),
                 _: 1
@@ -385,8 +397,33 @@ return (_ctx, _cache) => {
                               key: 'sf' + i
                             }, [
                               _createElementVNode("td", _hoisted_3, _toDisplayString(r.site), 1),
-                              _createElementVNode("td", _hoisted_4, _toDisplayString(r.value), 1),
+                              _createElementVNode("td", _hoisted_4, _toDisplayString(r.values.join(';')), 1),
                               _createElementVNode("td", _hoisted_5, [
+                                _createVNode(_component_v_btn, {
+                                  icon: "",
+                                  size: "x-small",
+                                  variant: "text",
+                                  onClick: $event => (openRuleDlg('suffix', i))
+                                }, {
+                                  default: _withCtx(() => [
+                                    _createVNode(_component_v_icon, { size: "small" }, {
+                                      default: _withCtx(() => [...(_cache[18] || (_cache[18] = [
+                                        _createTextVNode("mdi-pencil-outline", -1)
+                                      ]))]),
+                                      _: 1
+                                    }),
+                                    _createVNode(_component_v_tooltip, {
+                                      activator: "parent",
+                                      location: "top"
+                                    }, {
+                                      default: _withCtx(() => [...(_cache[19] || (_cache[19] = [
+                                        _createTextVNode("编辑", -1)
+                                      ]))]),
+                                      _: 1
+                                    })
+                                  ]),
+                                  _: 1
+                                }, 8, ["onClick"]),
                                 _createVNode(_component_v_btn, {
                                   icon: "",
                                   size: "x-small",
@@ -396,7 +433,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[19] || (_cache[19] = [
+                                      default: _withCtx(() => [...(_cache[20] || (_cache[20] = [
                                         _createTextVNode("mdi-delete-outline", -1)
                                       ]))]),
                                       _: 1
@@ -405,7 +442,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[20] || (_cache[20] = [
+                                      default: _withCtx(() => [...(_cache[21] || (_cache[21] = [
                                         _createTextVNode("删除", -1)
                                       ]))]),
                                       _: 1
@@ -424,7 +461,7 @@ return (_ctx, _cache) => {
               ]),
               _: 1
             }),
-            _cache[21] || (_cache[21] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "命中后缀的做种种子判定为官组", -1))
+            _cache[22] || (_cache[22] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "命中后缀的做种种子判定为官组", -1))
           ]),
           _: 1
         }),
@@ -434,7 +471,7 @@ return (_ctx, _cache) => {
         }, {
           default: _withCtx(() => [
             _createElementVNode("div", _hoisted_7, [
-              _cache[23] || (_cache[23] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点域名补充", -1)),
+              _cache[24] || (_cache[24] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点域名补充", -1)),
               _createVNode(_component_v_spacer),
               _createVNode(_component_v_btn, {
                 size: "x-small",
@@ -443,7 +480,7 @@ return (_ctx, _cache) => {
                 "prepend-icon": "mdi-plus",
                 onClick: _cache[7] || (_cache[7] = $event => (openRuleDlg('domain')))
               }, {
-                default: _withCtx(() => [...(_cache[22] || (_cache[22] = [
+                default: _withCtx(() => [...(_cache[23] || (_cache[23] = [
                   _createTextVNode("新增", -1)
                 ]))]),
                 _: 1
@@ -467,8 +504,33 @@ return (_ctx, _cache) => {
                               key: 'dm' + i
                             }, [
                               _createElementVNode("td", _hoisted_8, _toDisplayString(r.site), 1),
-                              _createElementVNode("td", _hoisted_9, _toDisplayString(r.value), 1),
+                              _createElementVNode("td", _hoisted_9, _toDisplayString(r.values.join(';')), 1),
                               _createElementVNode("td", _hoisted_10, [
+                                _createVNode(_component_v_btn, {
+                                  icon: "",
+                                  size: "x-small",
+                                  variant: "text",
+                                  onClick: $event => (openRuleDlg('domain', i))
+                                }, {
+                                  default: _withCtx(() => [
+                                    _createVNode(_component_v_icon, { size: "small" }, {
+                                      default: _withCtx(() => [...(_cache[25] || (_cache[25] = [
+                                        _createTextVNode("mdi-pencil-outline", -1)
+                                      ]))]),
+                                      _: 1
+                                    }),
+                                    _createVNode(_component_v_tooltip, {
+                                      activator: "parent",
+                                      location: "top"
+                                    }, {
+                                      default: _withCtx(() => [...(_cache[26] || (_cache[26] = [
+                                        _createTextVNode("编辑", -1)
+                                      ]))]),
+                                      _: 1
+                                    })
+                                  ]),
+                                  _: 1
+                                }, 8, ["onClick"]),
                                 _createVNode(_component_v_btn, {
                                   icon: "",
                                   size: "x-small",
@@ -478,7 +540,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[24] || (_cache[24] = [
+                                      default: _withCtx(() => [...(_cache[27] || (_cache[27] = [
                                         _createTextVNode("mdi-delete-outline", -1)
                                       ]))]),
                                       _: 1
@@ -487,7 +549,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[25] || (_cache[25] = [
+                                      default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
                                         _createTextVNode("删除", -1)
                                       ]))]),
                                       _: 1
@@ -506,14 +568,14 @@ return (_ctx, _cache) => {
               ]),
               _: 1
             }),
-            _cache[26] || (_cache[26] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "系统已收录站点按 tracker 域名自动识别, 此处补充别名域名", -1))
+            _cache[29] || (_cache[29] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "系统已收录站点按 tracker 域名自动识别, 此处补充别名域名", -1))
           ]),
           _: 1
         })
       ]),
       _: 1
     }),
-    _cache[35] || (_cache[35] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "本地对比路径", -1)),
+    _cache[42] || (_cache[42] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "本地对比路径", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -560,7 +622,7 @@ return (_ctx, _cache) => {
         "prepend-icon": "mdi-chart-donut",
         onClick: _cache[10] || (_cache[10] = $event => (emit('switch')))
       }, {
-        default: _withCtx(() => [...(_cache[27] || (_cache[27] = [
+        default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
           _createTextVNode("查看统计", -1)
         ]))]),
         _: 1
@@ -570,7 +632,7 @@ return (_ctx, _cache) => {
         variant: "text",
         onClick: _cache[11] || (_cache[11] = $event => (emit('close')))
       }, {
-        default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
+        default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
           _createTextVNode("取消", -1)
         ]))]),
         _: 1
@@ -580,7 +642,7 @@ return (_ctx, _cache) => {
         loading: saving.value,
         onClick: saveConfig
       }, {
-        default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
+        default: _withCtx(() => [...(_cache[32] || (_cache[32] = [
           _createTextVNode("保存", -1)
         ]))]),
         _: 1
@@ -599,7 +661,7 @@ return (_ctx, _cache) => {
     }, 8, ["modelValue", "color"]),
     _createVNode(_component_v_dialog, {
       modelValue: ruleDlg.show,
-      "onUpdate:modelValue": _cache[16] || (_cache[16] = $event => ((ruleDlg.show) = $event)),
+      "onUpdate:modelValue": _cache[15] || (_cache[15] = $event => ((ruleDlg.show) = $event)),
       "max-width": "430"
     }, {
       default: _withCtx(() => [
@@ -607,7 +669,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_card_title, { class: "text-subtitle-1 font-weight-bold" }, {
               default: _withCtx(() => [
-                _createTextVNode(_toDisplayString(ruleDlg.type === 'suffix' ? '新增官组后缀' : '新增站点域名'), 1)
+                _createTextVNode(_toDisplayString((ruleDlg.editingIndex !== null ? '编辑' : '新增') + (ruleDlg.type === 'suffix' ? '官组后缀' : '站点域名')), 1)
               ]),
               _: 1
             }),
@@ -623,14 +685,77 @@ return (_ctx, _cache) => {
                   hint: "可从站点库下拉选择, 也可手动输入别名",
                   "persistent-hint": ""
                 }, null, 8, ["modelValue", "items", "loading"]),
-                _createVNode(_component_v_text_field, {
-                  modelValue: ruleDlg.value,
-                  "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((ruleDlg.value) = $event)),
-                  class: "mt-3",
-                  variant: "outlined",
-                  label: ruleDlg.type === 'suffix' ? '官组后缀(不区分大小写)' : '补充域名(可多个, 逗号分隔)',
-                  placeholder: ruleDlg.type === 'suffix' ? '如 CHD' : '如 pt.example.net'
-                }, null, 8, ["modelValue", "label", "placeholder"])
+                (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(ruleDlg.values, (v, i) => {
+                  return (_openBlock(), _createElementBlock("div", {
+                    key: 'val' + i,
+                    class: "d-flex align-center mt-2"
+                  }, [
+                    _createVNode(_component_v_text_field, {
+                      modelValue: ruleDlg.values[i],
+                      "onUpdate:modelValue": $event => ((ruleDlg.values[i]) = $event),
+                      variant: "outlined",
+                      density: "comfortable",
+                      "hide-details": "",
+                      label: i === 0 ? (ruleDlg.type === 'suffix' ? '官组后缀(不区分大小写)' : '补充域名') : '',
+                      placeholder: ruleDlg.type === 'suffix' ? '如 CHD' : '如 pt.example.net'
+                    }, null, 8, ["modelValue", "onUpdate:modelValue", "label", "placeholder"]),
+                    _createVNode(_component_v_btn, {
+                      icon: "",
+                      size: "x-small",
+                      variant: "text",
+                      color: "primary",
+                      class: "ml-1 flex-grow-0",
+                      onClick: $event => (ruleDlg.values.splice(i + 1, 0, ''))
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_icon, null, {
+                          default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
+                            _createTextVNode("mdi-plus", -1)
+                          ]))]),
+                          _: 1
+                        }),
+                        _createVNode(_component_v_tooltip, {
+                          activator: "parent",
+                          location: "top"
+                        }, {
+                          default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
+                            _createTextVNode("加一项", -1)
+                          ]))]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["onClick"]),
+                    _createVNode(_component_v_btn, {
+                      icon: "",
+                      size: "x-small",
+                      variant: "text",
+                      color: "error",
+                      class: "ml-1 flex-grow-0",
+                      disabled: ruleDlg.values.length <= 1,
+                      onClick: $event => (ruleDlg.values.splice(i, 1))
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_v_icon, null, {
+                          default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
+                            _createTextVNode("mdi-minus", -1)
+                          ]))]),
+                          _: 1
+                        }),
+                        _createVNode(_component_v_tooltip, {
+                          activator: "parent",
+                          location: "top"
+                        }, {
+                          default: _withCtx(() => [...(_cache[36] || (_cache[36] = [
+                            _createTextVNode("删除此项", -1)
+                          ]))]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }, 8, ["disabled", "onClick"])
+                  ]))
+                }), 128))
               ]),
               _: 1
             }),
@@ -639,19 +764,19 @@ return (_ctx, _cache) => {
                 _createVNode(_component_v_spacer),
                 _createVNode(_component_v_btn, {
                   variant: "text",
-                  onClick: _cache[15] || (_cache[15] = $event => (ruleDlg.show = false))
+                  onClick: _cache[14] || (_cache[14] = $event => (ruleDlg.show = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
+                  default: _withCtx(() => [...(_cache[37] || (_cache[37] = [
                     _createTextVNode("取消", -1)
                   ]))]),
                   _: 1
                 }),
                 _createVNode(_component_v_btn, {
                   color: "primary",
-                  disabled: !ruleDlg.site || !ruleDlg.value,
+                  disabled: !ruleDlg.site || !ruleDlg.values.some(v => String(v || '').trim()),
                   onClick: confirmRule
                 }, {
-                  default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
+                  default: _withCtx(() => [...(_cache[38] || (_cache[38] = [
                     _createTextVNode("确定", -1)
                   ]))]),
                   _: 1
