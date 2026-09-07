@@ -3,14 +3,15 @@
         "name": "做种统计",
         "description": "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。",
         "labels": "做种,统计,整理",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "seedstats.png",
         "author": "liuziyi16",
         "level": 1,
         "v2": true,
         "v3": false,
         "history": {
-            "v1.0": "首个版本:做种统计与本地对比清理"
+            "v1.0": "首个版本:做种统计与本地对比清理",
+            "v1.0.1": "修复设置/数据弹框无法打开(补 Config/Page 联邦暴露)"
         }
     },
     "ShortCutModified": {
