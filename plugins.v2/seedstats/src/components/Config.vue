@@ -20,12 +20,12 @@
     <div class="text-subtitle-1 font-weight-bold mt-4 mb-2">调度周期 (5段cron, 宿主时区)</div>
     <v-row dense>
       <v-col cols="12" md="6">
-        <v-text-field v-model="config.seed_cron" label="种子统计 cron" placeholder="0 */12 * * *"
-          hint="留空回退默认(每12小时)" persistent-hint variant="outlined" clearable></v-text-field>
+        <v-cron-field v-model="config.seed_cron" label="种子统计 cron" placeholder="0 */12 * * *"
+          hint="留空回退默认(每12小时)" persistent-hint variant="outlined"></v-cron-field>
       </v-col>
       <v-col cols="12" md="6">
-        <v-text-field v-model="config.local_cron" label="本地对比 cron" placeholder="20 3 * * *"
-          hint="仅启用本地对比时生效, 默认每天 03:20" persistent-hint variant="outlined" clearable></v-text-field>
+        <v-cron-field v-model="config.local_cron" label="本地对比 cron" placeholder="20 3 * * *"
+          hint="仅启用本地对比时生效, 默认每天 03:20" persistent-hint variant="outlined"></v-cron-field>
       </v-col>
     </v-row>
 

@@ -103,7 +103,7 @@ return (_ctx, _cache) => {
   const _component_v_switch = _resolveComponent("v-switch");
   const _component_v_col = _resolveComponent("v-col");
   const _component_v_row = _resolveComponent("v-row");
-  const _component_v_text_field = _resolveComponent("v-text-field");
+  const _component_v_cron_field = _resolveComponent("v-cron-field");
   const _component_v_select = _resolveComponent("v-select");
   const _component_v_textarea = _resolveComponent("v-textarea");
   const _component_v_btn = _resolveComponent("v-btn");
@@ -187,15 +187,14 @@ return (_ctx, _cache) => {
           md: "6"
         }, {
           default: _withCtx(() => [
-            _createVNode(_component_v_text_field, {
+            _createVNode(_component_v_cron_field, {
               modelValue: config.seed_cron,
               "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((config.seed_cron) = $event)),
               label: "种子统计 cron",
               placeholder: "0 */12 * * *",
               hint: "留空回退默认(每12小时)",
               "persistent-hint": "",
-              variant: "outlined",
-              clearable: ""
+              variant: "outlined"
             }, null, 8, ["modelValue"])
           ]),
           _: 1
@@ -205,15 +204,14 @@ return (_ctx, _cache) => {
           md: "6"
         }, {
           default: _withCtx(() => [
-            _createVNode(_component_v_text_field, {
+            _createVNode(_component_v_cron_field, {
               modelValue: config.local_cron,
               "onUpdate:modelValue": _cache[4] || (_cache[4] = $event => ((config.local_cron) = $event)),
               label: "本地对比 cron",
               placeholder: "20 3 * * *",
               hint: "仅启用本地对比时生效, 默认每天 03:20",
               "persistent-hint": "",
-              variant: "outlined",
-              clearable: ""
+              variant: "outlined"
             }, null, 8, ["modelValue"])
           ]),
           _: 1
