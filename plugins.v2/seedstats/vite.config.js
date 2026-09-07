@@ -10,11 +10,23 @@ export default defineConfig({
       filename: 'remoteEntry.js',
       exposes: {
         './AppPage': './src/components/AppPage.vue',
+        './Page': './src/components/Page.vue',
+        './Config': './src/components/Config.vue',
       },
       shared: {
         vue: {
           requiredVersion: false,
           generate: false,
+        },
+        vuetify: {
+          requiredVersion: false,
+          generate: false,
+          singleton: true,
+        },
+        'vuetify/styles': {
+          requiredVersion: false,
+          generate: false,
+          singleton: true,
         },
       },
       format: 'esm',
