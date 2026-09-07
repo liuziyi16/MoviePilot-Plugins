@@ -197,7 +197,7 @@ defineExpose({ loadSeed, loadLocal })
 </script>
 
 <template>
-  <div class="ss-root pa-2" style="max-width: 1180px">
+  <div class="ss-root pa-2 mx-auto" style="max-width: 1180px">
     <!-- 顶部工具条 -->
     <div class="d-flex align-center mb-2 flex-wrap ga-2">
       <v-btn-toggle v-model="mode" density="compact" mandatory rounded="lg">

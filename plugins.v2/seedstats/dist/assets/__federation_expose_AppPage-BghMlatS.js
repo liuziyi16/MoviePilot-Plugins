@@ -46,7 +46,7 @@ const {createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withC
 
 
 const _hoisted_1 = {
-  class: "ss-root pa-2",
+  class: "ss-root pa-2 mx-auto",
   style: {"max-width":"1180px"}
 };
 const _hoisted_2 = { class: "d-flex align-center mb-2 flex-wrap ga-2" };
@@ -951,6 +951,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-36b20d56"]]);
+const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-7ea46735"]]);
 
 export { AppPage as default };

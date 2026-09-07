@@ -1,5 +1,5 @@
 <template>
-  <div class="pa-2">
+  <div style="padding: 8px">
     <AppPage :api="api" plugin-id="SeedStats" hide-title />
   </div>
 </template>

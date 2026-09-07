@@ -3,7 +3,10 @@ import { importShared } from './__federation_fn_import-JrT3xvdd.js';
 const {toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,createElementVNode:_createElementVNode,createVNode:_createVNode,createElementBlock:_createElementBlock} = await importShared('vue');
 
 
-const _hoisted_1 = { class: "plugin-config pa-4" };
+const _hoisted_1 = {
+  class: "plugin-config",
+  style: {"padding":"16px"}
+};
 const _hoisted_2 = { class: "d-flex justify-end mt-2" };
 
 const {ref,reactive,onMounted} = await importShared('vue');
