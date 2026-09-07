@@ -1,35 +1,43 @@
 import { importShared } from './__federation_fn_import-JrT3xvdd.js';
 
-const {toDisplayString:_toDisplayString,createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,createElementVNode:_createElementVNode,createVNode:_createVNode,renderList:_renderList,Fragment:_Fragment,createElementBlock:_createElementBlock} = await importShared('vue');
+const _export_sfc = (sfc, props) => {
+  const target = sfc.__vccOpts || sfc;
+  for (const [key, val] of props) {
+    target[key] = val;
+  }
+  return target;
+};
+
+const {createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,createVNode:_createVNode,createElementVNode:_createElementVNode,toDisplayString:_toDisplayString,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,renderList:_renderList,Fragment:_Fragment,createElementBlock:_createElementBlock} = await importShared('vue');
 
 
 const _hoisted_1 = {
   class: "plugin-config",
   style: {"padding":"16px"}
 };
-const _hoisted_2 = { class: "d-flex align-center mb-1" };
-const _hoisted_3 = { class: "text-body-2" };
-const _hoisted_4 = { class: "text-body-2 text-medium-emphasis" };
-const _hoisted_5 = {
-  class: "text-right",
-  style: {"width":"72px","white-space":"nowrap"}
-};
+const _hoisted_2 = { class: "d-flex justify-end ga-2 ss-sticky-bar" };
+const _hoisted_3 = { class: "d-flex align-center mb-1" };
+const _hoisted_4 = { class: "text-body-2" };
+const _hoisted_5 = { class: "text-body-2 text-medium-emphasis" };
 const _hoisted_6 = {
-  key: 1,
-  class: "text-body-2 text-medium-emphasis pa-3"
-};
-const _hoisted_7 = { class: "d-flex align-center mb-1" };
-const _hoisted_8 = { class: "text-body-2" };
-const _hoisted_9 = { class: "text-body-2 text-medium-emphasis" };
-const _hoisted_10 = {
   class: "text-right",
   style: {"width":"72px","white-space":"nowrap"}
 };
-const _hoisted_11 = {
+const _hoisted_7 = {
   key: 1,
   class: "text-body-2 text-medium-emphasis pa-3"
 };
-const _hoisted_12 = { class: "d-flex justify-end mt-2" };
+const _hoisted_8 = { class: "d-flex align-center mb-1" };
+const _hoisted_9 = { class: "text-body-2" };
+const _hoisted_10 = { class: "text-body-2 text-medium-emphasis" };
+const _hoisted_11 = {
+  class: "text-right",
+  style: {"width":"72px","white-space":"nowrap"}
+};
+const _hoisted_12 = {
+  key: 1,
+  class: "text-body-2 text-medium-emphasis pa-3"
+};
 
 const {ref,reactive,onMounted} = await importShared('vue');
 
@@ -203,6 +211,7 @@ async function saveConfig() {
 }
 
 return (_ctx, _cache) => {
+  const _component_v_btn = _resolveComponent("v-btn");
   const _component_v_alert = _resolveComponent("v-alert");
   const _component_v_switch = _resolveComponent("v-switch");
   const _component_v_col = _resolveComponent("v-col");
@@ -210,7 +219,6 @@ return (_ctx, _cache) => {
   const _component_v_cron_field = _resolveComponent("v-cron-field");
   const _component_v_select = _resolveComponent("v-select");
   const _component_v_spacer = _resolveComponent("v-spacer");
-  const _component_v_btn = _resolveComponent("v-btn");
   const _component_v_icon = _resolveComponent("v-icon");
   const _component_v_tooltip = _resolveComponent("v-tooltip");
   const _component_v_table = _resolveComponent("v-table");
@@ -226,6 +234,37 @@ return (_ctx, _cache) => {
   const _component_v_dialog = _resolveComponent("v-dialog");
 
   return (_openBlock(), _createElementBlock("div", _hoisted_1, [
+    _createElementVNode("div", _hoisted_2, [
+      _createVNode(_component_v_btn, {
+        variant: "text",
+        "prepend-icon": "mdi-chart-donut",
+        onClick: _cache[0] || (_cache[0] = $event => (emit('switch')))
+      }, {
+        default: _withCtx(() => [...(_cache[16] || (_cache[16] = [
+          _createTextVNode("查看统计", -1)
+        ]))]),
+        _: 1
+      }),
+      _createVNode(_component_v_btn, {
+        variant: "text",
+        onClick: _cache[1] || (_cache[1] = $event => (emit('close')))
+      }, {
+        default: _withCtx(() => [...(_cache[17] || (_cache[17] = [
+          _createTextVNode("取消", -1)
+        ]))]),
+        _: 1
+      }),
+      _createVNode(_component_v_btn, {
+        color: "primary",
+        loading: saving.value,
+        onClick: saveConfig
+      }, {
+        default: _withCtx(() => [...(_cache[18] || (_cache[18] = [
+          _createTextVNode("保存", -1)
+        ]))]),
+        _: 1
+      }, 8, ["loading"])
+    ]),
     (error.value)
       ? (_openBlock(), _createBlock(_component_v_alert, {
           key: 0,
@@ -249,10 +288,11 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_switch, {
               modelValue: config.enabled,
-              "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((config.enabled) = $event)),
+              "onUpdate:modelValue": _cache[2] || (_cache[2] = $event => ((config.enabled) = $event)),
               label: "启用插件",
               color: "primary",
               inset: "",
+              density: "compact",
               "hide-details": ""
             }, null, 8, ["modelValue"])
           ]),
@@ -265,12 +305,13 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_switch, {
               modelValue: config.local_scan,
-              "onUpdate:modelValue": _cache[1] || (_cache[1] = $event => ((config.local_scan) = $event)),
+              "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((config.local_scan) = $event)),
               label: "启用每日本地对比",
               color: "primary",
               inset: "",
-              hint: "定时对比磁盘,生成可删候选清单(不会自动删)",
-              "persistent-hint": ""
+              density: "compact",
+              title: "定时对比磁盘,生成可删候选清单(不会自动删)",
+              "hide-details": ""
             }, null, 8, ["modelValue"])
           ]),
           _: 1
@@ -282,12 +323,13 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_switch, {
               modelValue: config.notify,
-              "onUpdate:modelValue": _cache[2] || (_cache[2] = $event => ((config.notify) = $event)),
+              "onUpdate:modelValue": _cache[4] || (_cache[4] = $event => ((config.notify) = $event)),
               label: "扫描完成通知",
               color: "primary",
               inset: "",
-              hint: "统计/对比完成后的推送提醒",
-              "persistent-hint": ""
+              density: "compact",
+              title: "统计/对比完成后的推送提醒",
+              "hide-details": ""
             }, null, 8, ["modelValue"])
           ]),
           _: 1
@@ -305,7 +347,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_cron_field, {
               modelValue: config.seed_cron,
-              "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((config.seed_cron) = $event)),
+              "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((config.seed_cron) = $event)),
               label: "种子统计 cron",
               placeholder: "0 */12 * * *",
               hint: "留空回退默认(每12小时)",
@@ -322,7 +364,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_cron_field, {
               modelValue: config.local_cron,
-              "onUpdate:modelValue": _cache[4] || (_cache[4] = $event => ((config.local_cron) = $event)),
+              "onUpdate:modelValue": _cache[6] || (_cache[6] = $event => ((config.local_cron) = $event)),
               label: "本地对比 cron",
               placeholder: "20 3 * * *",
               hint: "仅启用本地对比时生效, 默认每天 03:20",
@@ -342,7 +384,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_select, {
               modelValue: config.downloaders,
-              "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((config.downloaders) = $event)),
+              "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((config.downloaders) = $event)),
               items: downloaderOptions.value,
               "item-title": "title",
               "item-value": "value",
@@ -363,17 +405,17 @@ return (_ctx, _cache) => {
           md: "6"
         }, {
           default: _withCtx(() => [
-            _createElementVNode("div", _hoisted_2, [
-              _cache[17] || (_cache[17] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点官方后缀 (判定官组)", -1)),
+            _createElementVNode("div", _hoisted_3, [
+              _cache[20] || (_cache[20] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点官方后缀 (判定官组)", -1)),
               _createVNode(_component_v_spacer),
               _createVNode(_component_v_btn, {
                 size: "x-small",
                 color: "primary",
                 variant: "tonal",
                 "prepend-icon": "mdi-plus",
-                onClick: _cache[6] || (_cache[6] = $event => (openRuleDlg('suffix')))
+                onClick: _cache[8] || (_cache[8] = $event => (openRuleDlg('suffix')))
               }, {
-                default: _withCtx(() => [...(_cache[16] || (_cache[16] = [
+                default: _withCtx(() => [...(_cache[19] || (_cache[19] = [
                   _createTextVNode("新增", -1)
                 ]))]),
                 _: 1
@@ -396,9 +438,9 @@ return (_ctx, _cache) => {
                             return (_openBlock(), _createElementBlock("tr", {
                               key: 'sf' + i
                             }, [
-                              _createElementVNode("td", _hoisted_3, _toDisplayString(r.site), 1),
-                              _createElementVNode("td", _hoisted_4, _toDisplayString(r.values.join(';')), 1),
-                              _createElementVNode("td", _hoisted_5, [
+                              _createElementVNode("td", _hoisted_4, _toDisplayString(r.site), 1),
+                              _createElementVNode("td", _hoisted_5, _toDisplayString(r.values.join(';')), 1),
+                              _createElementVNode("td", _hoisted_6, [
                                 _createVNode(_component_v_btn, {
                                   icon: "",
                                   size: "x-small",
@@ -407,7 +449,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[18] || (_cache[18] = [
+                                      default: _withCtx(() => [...(_cache[21] || (_cache[21] = [
                                         _createTextVNode("mdi-pencil-outline", -1)
                                       ]))]),
                                       _: 1
@@ -416,7 +458,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[19] || (_cache[19] = [
+                                      default: _withCtx(() => [...(_cache[22] || (_cache[22] = [
                                         _createTextVNode("编辑", -1)
                                       ]))]),
                                       _: 1
@@ -433,7 +475,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[20] || (_cache[20] = [
+                                      default: _withCtx(() => [...(_cache[23] || (_cache[23] = [
                                         _createTextVNode("mdi-delete-outline", -1)
                                       ]))]),
                                       _: 1
@@ -442,7 +484,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[21] || (_cache[21] = [
+                                      default: _withCtx(() => [...(_cache[24] || (_cache[24] = [
                                         _createTextVNode("删除", -1)
                                       ]))]),
                                       _: 1
@@ -457,11 +499,11 @@ return (_ctx, _cache) => {
                       ]),
                       _: 1
                     }))
-                  : (_openBlock(), _createElementBlock("div", _hoisted_6, " 暂无规则, 点击\"新增\"添加(站点: 后缀) "))
+                  : (_openBlock(), _createElementBlock("div", _hoisted_7, " 暂无规则, 点击\"新增\"添加(站点: 后缀) "))
               ]),
               _: 1
             }),
-            _cache[22] || (_cache[22] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "命中后缀的做种种子判定为官组", -1))
+            _cache[25] || (_cache[25] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "命中后缀的做种种子判定为官组", -1))
           ]),
           _: 1
         }),
@@ -470,17 +512,17 @@ return (_ctx, _cache) => {
           md: "6"
         }, {
           default: _withCtx(() => [
-            _createElementVNode("div", _hoisted_7, [
-              _cache[24] || (_cache[24] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点域名补充", -1)),
+            _createElementVNode("div", _hoisted_8, [
+              _cache[27] || (_cache[27] = _createElementVNode("span", { class: "text-subtitle-2" }, "站点域名补充", -1)),
               _createVNode(_component_v_spacer),
               _createVNode(_component_v_btn, {
                 size: "x-small",
                 color: "primary",
                 variant: "tonal",
                 "prepend-icon": "mdi-plus",
-                onClick: _cache[7] || (_cache[7] = $event => (openRuleDlg('domain')))
+                onClick: _cache[9] || (_cache[9] = $event => (openRuleDlg('domain')))
               }, {
-                default: _withCtx(() => [...(_cache[23] || (_cache[23] = [
+                default: _withCtx(() => [...(_cache[26] || (_cache[26] = [
                   _createTextVNode("新增", -1)
                 ]))]),
                 _: 1
@@ -503,9 +545,9 @@ return (_ctx, _cache) => {
                             return (_openBlock(), _createElementBlock("tr", {
                               key: 'dm' + i
                             }, [
-                              _createElementVNode("td", _hoisted_8, _toDisplayString(r.site), 1),
-                              _createElementVNode("td", _hoisted_9, _toDisplayString(r.values.join(';')), 1),
-                              _createElementVNode("td", _hoisted_10, [
+                              _createElementVNode("td", _hoisted_9, _toDisplayString(r.site), 1),
+                              _createElementVNode("td", _hoisted_10, _toDisplayString(r.values.join(';')), 1),
+                              _createElementVNode("td", _hoisted_11, [
                                 _createVNode(_component_v_btn, {
                                   icon: "",
                                   size: "x-small",
@@ -514,7 +556,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[25] || (_cache[25] = [
+                                      default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
                                         _createTextVNode("mdi-pencil-outline", -1)
                                       ]))]),
                                       _: 1
@@ -523,7 +565,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[26] || (_cache[26] = [
+                                      default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
                                         _createTextVNode("编辑", -1)
                                       ]))]),
                                       _: 1
@@ -540,7 +582,7 @@ return (_ctx, _cache) => {
                                 }, {
                                   default: _withCtx(() => [
                                     _createVNode(_component_v_icon, { size: "small" }, {
-                                      default: _withCtx(() => [...(_cache[27] || (_cache[27] = [
+                                      default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
                                         _createTextVNode("mdi-delete-outline", -1)
                                       ]))]),
                                       _: 1
@@ -549,7 +591,7 @@ return (_ctx, _cache) => {
                                       activator: "parent",
                                       location: "top"
                                     }, {
-                                      default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
+                                      default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
                                         _createTextVNode("删除", -1)
                                       ]))]),
                                       _: 1
@@ -564,11 +606,11 @@ return (_ctx, _cache) => {
                       ]),
                       _: 1
                     }))
-                  : (_openBlock(), _createElementBlock("div", _hoisted_11, " 暂无规则, 点击\"新增\"添加(站点: 域名) "))
+                  : (_openBlock(), _createElementBlock("div", _hoisted_12, " 暂无规则, 点击\"新增\"添加(站点: 域名) "))
               ]),
               _: 1
             }),
-            _cache[29] || (_cache[29] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "系统已收录站点按 tracker 域名自动识别, 此处补充别名域名", -1))
+            _cache[32] || (_cache[32] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mt-1" }, "系统已收录站点按 tracker 域名自动识别, 此处补充别名域名", -1))
           ]),
           _: 1
         })
@@ -585,7 +627,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_textarea, {
               modelValue: config.path_map,
-              "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((config.path_map) = $event)),
+              "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((config.path_map) = $event)),
               label: "磁盘路径映射(远程→本地)",
               rows: "3",
               variant: "outlined",
@@ -602,7 +644,7 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_textarea, {
               modelValue: config.exclude_paths,
-              "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((config.exclude_paths) = $event)),
+              "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((config.exclude_paths) = $event)),
               label: "本地对比排除路径",
               rows: "3",
               variant: "outlined",
@@ -615,39 +657,6 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _createElementVNode("div", _hoisted_12, [
-      _createVNode(_component_v_btn, {
-        class: "me-2",
-        variant: "text",
-        "prepend-icon": "mdi-chart-donut",
-        onClick: _cache[10] || (_cache[10] = $event => (emit('switch')))
-      }, {
-        default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
-          _createTextVNode("查看统计", -1)
-        ]))]),
-        _: 1
-      }),
-      _createVNode(_component_v_btn, {
-        class: "me-2",
-        variant: "text",
-        onClick: _cache[11] || (_cache[11] = $event => (emit('close')))
-      }, {
-        default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
-          _createTextVNode("取消", -1)
-        ]))]),
-        _: 1
-      }),
-      _createVNode(_component_v_btn, {
-        color: "primary",
-        loading: saving.value,
-        onClick: saveConfig
-      }, {
-        default: _withCtx(() => [...(_cache[32] || (_cache[32] = [
-          _createTextVNode("保存", -1)
-        ]))]),
-        _: 1
-      }, 8, ["loading"])
-    ]),
     _createVNode(_component_v_snackbar, {
       modelValue: snackbar.show,
       "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((snackbar.show) = $event)),
@@ -795,5 +804,6 @@ return (_ctx, _cache) => {
 }
 
 };
+const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-66a61e6c"]]);
 
-export { _sfc_main as default };
+export { _export_sfc as _, Config as default };

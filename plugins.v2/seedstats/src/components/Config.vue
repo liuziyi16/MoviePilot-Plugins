@@ -1,19 +1,26 @@
 <template>
   <div class="plugin-config" style="padding: 16px">
+    <div class="d-flex justify-end ga-2 ss-sticky-bar">
+      <v-btn variant="text" prepend-icon="mdi-chart-donut" @click="emit('switch')">查看统计</v-btn>
+      <v-btn variant="text" @click="emit('close')">取消</v-btn>
+      <v-btn color="primary" :loading="saving" @click="saveConfig">保存</v-btn>
+    </div>
+
     <v-alert v-if="error" type="error" class="mb-4" variant="tonal">{{ error }}</v-alert>
 
     <div class="text-subtitle-1 font-weight-bold mt-2 mb-2">基本设置</div>
     <v-row dense>
       <v-col cols="12" md="4">
-        <v-switch v-model="config.enabled" label="启用插件" color="primary" inset hide-details></v-switch>
+        <v-switch v-model="config.enabled" label="启用插件" color="primary" inset density="compact"
+          hide-details></v-switch>
       </v-col>
       <v-col cols="12" md="4">
-        <v-switch v-model="config.local_scan" label="启用每日本地对比" color="primary" inset
-          hint="定时对比磁盘,生成可删候选清单(不会自动删)" persistent-hint></v-switch>
+        <v-switch v-model="config.local_scan" label="启用每日本地对比" color="primary" inset density="compact"
+          title="定时对比磁盘,生成可删候选清单(不会自动删)" hide-details></v-switch>
       </v-col>
       <v-col cols="12" md="4">
-        <v-switch v-model="config.notify" label="扫描完成通知" color="primary" inset
-          hint="统计/对比完成后的推送提醒" persistent-hint></v-switch>
+        <v-switch v-model="config.notify" label="扫描完成通知" color="primary" inset density="compact"
+          title="统计/对比完成后的推送提醒" hide-details></v-switch>
       </v-col>
     </v-row>
 
@@ -114,12 +121,6 @@
       </v-col>
     </v-row>
 
-    <div class="d-flex justify-end mt-2">
-      <v-btn class="me-2" variant="text" prepend-icon="mdi-chart-donut" @click="emit('switch')">查看统计</v-btn>
-      <v-btn class="me-2" variant="text" @click="emit('close')">取消</v-btn>
-      <v-btn color="primary" :loading="saving" @click="saveConfig">保存</v-btn>
-    </div>
-
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="2500">
       {{ snackbar.text }}
     </v-snackbar>
@@ -158,6 +159,18 @@
     </v-dialog>
   </div>
 </template>
+
+<style scoped>
+.ss-sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgb(var(--v-theme-surface));
+  margin: -16px -16px 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+</style>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'

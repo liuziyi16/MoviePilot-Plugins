@@ -1,0 +1,10 @@
+
+.ss-sticky-bar[data-v-66a61e6c] {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgb(var(--v-theme-surface));
+  margin: -16px -16px 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}

@@ -1,12 +1,16 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { unwrapResponse, dataOf, formatSize, fmtInt, fmtRatio } from '../provider'
+import Config from './Config.vue'
 
 const props = defineProps({
   api: { type: Object, default: () => ({}) },
   pluginId: { type: String, default: 'SeedStats' },
   hideTitle: { type: Boolean, default: false },
 })
+
+// ---------- 内嵌设置弹框 ----------
+const settingsOpen = ref(false)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SeedStats'}`)
 
@@ -200,34 +204,45 @@ defineExpose({ loadSeed, loadLocal })
   <div class="ss-root pa-2 mx-auto" style="max-width: 1180px">
     <!-- 顶部工具条 -->
     <div class="d-flex align-center mb-2 flex-wrap ga-2">
-      <v-btn-toggle v-model="mode" density="compact" mandatory rounded="lg">
+      <v-btn-toggle v-model="mode" mandatory rounded="lg">
         <v-btn value="seed" size="small"><v-icon left>mdi-radar</v-icon>做种统计</v-btn>
         <v-btn value="local" size="small"><v-icon left>mdi-folder-search</v-icon>本地清理</v-btn>
       </v-btn-toggle>
       <v-spacer />
       <template v-if="mode === 'seed'">
-        <v-chip density="compact" :color="seedLoading ? 'grey' : 'primary'">
+        <v-chip :color="seedLoading ? 'grey' : 'primary'">
           {{ seedLoading ? '加载中…' : (stats.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn density="compact" color="primary" variant="flat" size="small"
+        <v-btn color="primary" variant="flat" size="small"
           :loading="seedLoading" @click="loadSeed()">
           <v-icon left>mdi-refresh</v-icon>刷新
         </v-btn>
-        <v-btn density="compact" color="info" variant="tonal" size="small"
+        <v-btn color="info" variant="tonal" size="small"
           @click="triggerScan('seed').then(() => toastMsg('已开始后台统计…', 'info'))">
           <v-icon left>mdi-play</v-icon>扫描
         </v-btn>
       </template>
       <template v-else>
-        <v-chip density="compact" :color="localLoading ? 'grey' : 'primary'">
+        <v-chip :color="localLoading ? 'grey' : 'primary'">
           {{ localLoading ? '加载中…' : (ldata.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn density="compact" color="info" variant="tonal" size="small"
+        <v-btn color="info" variant="tonal" size="small"
           @click="triggerScan('local')">
           <v-icon left>mdi-play</v-icon>本地扫描
         </v-btn>
       </template>
+      <v-btn color="secondary" variant="tonal" size="small" prepend-icon="mdi-cog"
+        @click="settingsOpen = true">设置</v-btn>
     </div>
+
+    <!-- 内嵌设置弹框 -->
+    <v-dialog v-model="settingsOpen" max-width="880" scrollable>
+      <v-card>
+        <v-card-text class="pa-0" style="max-height: 72vh">
+          <Config v-if="settingsOpen" :api="api" @close="settingsOpen = false" @switch="settingsOpen = false" />
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
     <!-- 顶部提示条 -->
     <v-alert v-if="toast" density="compact" type="success" variant="tonal" class="mb-2">{{ toast }}</v-alert>
