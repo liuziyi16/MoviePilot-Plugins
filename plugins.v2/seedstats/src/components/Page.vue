@@ -1,5 +1,7 @@
 <template>
-  <AppPage :api="api" plugin-id="SeedStats" hide-title />
+  <div class="pa-2">
+    <AppPage :api="api" plugin-id="SeedStats" hide-title />
+  </div>
 </template>
 
 <script setup>

@@ -1,5 +1,5 @@
 <template>
-  <div class="plugin-config">
+  <div class="plugin-config pa-4">
     <v-alert v-if="error" type="error" class="mb-4" variant="tonal">{{ error }}</v-alert>
 
     <div class="text-subtitle-1 font-weight-bold mt-2 mb-2">基本设置</div>
