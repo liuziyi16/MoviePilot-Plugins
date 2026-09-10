@@ -1,12 +1,5 @@
 import { importShared } from './__federation_fn_import-JrT3xvdd.js';
-
-const _export_sfc = (sfc, props) => {
-  const target = sfc.__vccOpts || sfc;
-  for (const [key, val] of props) {
-    target[key] = val;
-  }
-  return target;
-};
+import { _ as _export_sfc } from './_plugin-vue_export-helper-pcqpp-6-.js';
 
 const {createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,createVNode:_createVNode,createElementVNode:_createElementVNode,toDisplayString:_toDisplayString,openBlock:_openBlock,createBlock:_createBlock,createCommentVNode:_createCommentVNode,renderList:_renderList,Fragment:_Fragment,createElementBlock:_createElementBlock} = await importShared('vue');
 
@@ -806,4 +799,4 @@ return (_ctx, _cache) => {
 };
 const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-66a61e6c"]]);
 
-export { _export_sfc as _, Config as default };
+export { Config as default };

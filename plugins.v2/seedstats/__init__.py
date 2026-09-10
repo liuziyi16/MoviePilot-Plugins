@@ -1,5 +1,4 @@
 import os
-import re
 import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -51,7 +50,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.0.8"
+    plugin_version = "1.1.0"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -126,10 +125,10 @@ class SeedStats(_PluginBase):
 
     # ---------- Vue 渲染与侧栏入口声明 ----------
 
-    @classmethod
-    def get_render_mode(cls) -> Tuple[str, str]:
-        """声明使用 Vue 联邦组件渲染。dist 路径随版本变化, 避免浏览器缓存旧界面。"""
-        return "vue", f"dist/v{cls.plugin_version}/assets"
+    @staticmethod
+    def get_render_mode() -> Tuple[str, str]:
+        """声明使用 Vue 联邦组件渲染。"""
+        return "vue", "dist/assets"
 
     def get_sidebar_nav(self) -> List[Dict[str, Any]]:
         """将本插件主页面注册到主界面侧栏(全页入口)。"""
@@ -162,6 +161,9 @@ class SeedStats(_PluginBase):
              "summary": "清理本地对比目录树中的空目录"},
             {"path": "/services", "endpoint": self.api_services, "methods": ["GET"],
              "auth": "bear", "summary": "获取可用下载器与路径信息"},
+            {"path": "/validate_path_map", "endpoint": self.api_validate_path_map,
+             "methods": ["POST"], "auth": "bear",
+             "summary": "逐行校验 path_map 远程/本地前缀是否存在(body:{raw?})"},
         ]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -437,7 +439,7 @@ class SeedStats(_PluginBase):
                 site, _, suffixes = line.partition(":")
                 key = site.strip().lower()
                 result[key] = {}
-                for suf in re.split(r"[,;，]+", suffixes):
+                for suf in suffixes.split(","):
                     suf = suf.strip().upper()
                     if suf:
                         result[key][suf] = site.strip()
@@ -451,7 +453,7 @@ class SeedStats(_PluginBase):
             if ":" in line:
                 site, _, domains = line.partition(":")
                 result[site.strip()] = {
-                    d.strip().lower() for d in re.split(r"[,;，]+", domains) if d.strip()
+                    d.strip().lower() for d in domains.split(",") if d.strip()
                 }
         return result
 
@@ -1196,4 +1198,110 @@ class SeedStats(_PluginBase):
         names = [n for n in names if n]
         return JSONResponse({"ok": True, "services": names,
                              "hint": "下载器名需与「下载器」模块中命名一致"})
+
+    # ---------- path_map 校验 ----------
+
+    # 校验结果状态码(便于前端配色/图标):
+    #   ok         - 远程 + 本地均存在
+    #   bad_remote - 远程前缀不存在(可能写错路径/下载器未挂载)
+    #   bad_local  - 本地前缀不存在(可能 NAS 路径写错)
+    #   bad_both   - 两端均不存在
+    #   bad_format - 分隔符缺失或两边都空
+    PATH_OK = "ok"
+    PATH_BAD_REMOTE = "bad_remote"
+    PATH_BAD_LOCAL = "bad_local"
+    PATH_BAD_BOTH = "bad_both"
+    PATH_BAD_FORMAT = "bad_format"
+
+    @staticmethod
+    def _split_path_line(line: str) -> Tuple[str, str]:
+        """与 _parse_map 同步:支持 =, ->, => 三种分隔符,两边各自 strip。
+        找不到分隔符返回 ("", "");两侧任一为空也算拆分失败。"""
+        s = (line or "").strip()
+        if not s:
+            return ("", "")
+        for sep in ("->", "=>", "="):   # 多字符优先,避免 "=" 抢分
+            if sep in s:
+                k, _, v = s.partition(sep)
+                k = k.strip()
+                v = v.strip()
+                if not k or not v:
+                    return ("", "")
+                return (k, v)
+        return ("", "")
+
+    def api_validate_path_map(self, body: dict = Body(default={})) -> JSONResponse:
+        """逐行校验 path_map 配置。
+
+        优先读 body.raw(用户在配置页尚未保存的最新文本);为空则用已加载的
+        self._path_map(配置项已保存并初始化插件)。无论来源,逐行 split 检查
+        远程/本地前缀是否存在。
+
+        返回结构(便于前端表格按行展示):
+          { ok: bool, summary: {total, ok, bad_format, bad_remote, bad_local, bad_both},
+            lines: [ {line_no, raw, remote, local, status, msg}, ... ] }
+        """
+        # 1) 决定校验源:body.raw 优先(用户在编辑框里点了"校验"),
+        #    否则用已加载的 self._path_map(用于自检/回显)
+        raw = ""
+        if isinstance(body, dict):
+            raw = str(body.get("raw") or "")
+        use_loaded = not raw.strip()
+        if use_loaded:
+            raw = "\n".join(f"{rp}={lp}" for rp, lp in (self._path_map or {}).items())
+
+        results: List[Dict[str, Any]] = []
+        counts = {"total": 0, self.PATH_OK: 0, self.PATH_BAD_FORMAT: 0,
+                  self.PATH_BAD_REMOTE: 0, self.PATH_BAD_LOCAL: 0,
+                  self.PATH_BAD_BOTH: 0}
+
+        # 与 _parse_list 一致:支持换行 / '|' 两种分隔
+        items: List[str] = []
+        for line in raw.splitlines():
+            for frag in line.split("|"):
+                frag = frag.strip()
+                if frag:
+                    items.append(frag)
+
+        for idx, line in enumerate(items, start=1):
+            counts["total"] += 1
+            remote, local = self._split_path_line(line)
+            if not remote or not local:
+                results.append({
+                    "line_no": idx, "raw": line, "remote": remote, "local": local,
+                    "status": self.PATH_BAD_FORMAT,
+                    "msg": "分隔符(= / -> / =>)缺失或一侧为空",
+                })
+                counts[self.PATH_BAD_FORMAT] += 1
+                continue
+            remote_exists = os.path.exists(remote)
+            local_exists = os.path.exists(local)
+            if remote_exists and local_exists:
+                status = self.PATH_OK
+                msg = "远程与本地前缀均存在"
+            elif not remote_exists and not local_exists:
+                status = self.PATH_BAD_BOTH
+                msg = "远程与本地前缀均不存在"
+            elif not remote_exists:
+                status = self.PATH_BAD_REMOTE
+                msg = "远程前缀不存在(检查下载器挂载或拼写)"
+            else:
+                status = self.PATH_BAD_LOCAL
+                msg = "本地前缀不存在(检查 NAS 路径或权限)"
+            results.append({
+                "line_no": idx, "raw": line, "remote": remote, "local": local,
+                "status": status, "msg": msg,
+                "remote_exists": remote_exists, "local_exists": local_exists,
+            })
+            counts[status] += 1
+
+        return JSONResponse({
+            "ok": counts[self.PATH_BAD_FORMAT] == 0
+                  and counts[self.PATH_BAD_REMOTE] == 0
+                  and counts[self.PATH_BAD_LOCAL] == 0
+                  and counts[self.PATH_BAD_BOTH] == 0,
+            "source": "body.raw" if not use_loaded else "loaded",
+            "summary": counts,
+            "lines": results,
+        })
 

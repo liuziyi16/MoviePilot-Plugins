@@ -1,16 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { unwrapResponse, dataOf, formatSize, fmtInt, fmtRatio } from '../provider'
-import Config from './Config.vue'
 
 const props = defineProps({
   api: { type: Object, default: () => ({}) },
   pluginId: { type: String, default: 'SeedStats' },
   hideTitle: { type: Boolean, default: false },
 })
-
-// ---------- 内嵌设置弹框 ----------
-const settingsOpen = ref(false)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SeedStats'}`)
 
@@ -57,6 +53,45 @@ function toastMsg(text, color) {
   toast.value = text
   emit('message', { text, color: color || 'info' })
   setTimeout(() => (toast.value = ''), 3000)
+}
+
+// ---------- 路径映射校验(本地清理 Tab) ----------
+// 把当前表单里的 path_map 文本粘贴到这里做存在校验;
+// 也可留空,后端会读 self._path_map(已保存到插件配置项的最新值)
+const pathMapInput = ref('')
+const pathMapCheckLoading = ref(false)
+const pathMapCheckResult = ref(null)   // 后端返回的 { ok, summary, lines, source }
+const pathMapCheckError = ref('')
+
+// 状态 -> 颜色 + 图标。集中放便于前端一致渲染
+const STATUS_META = {
+  ok:          { color: 'success', icon: 'mdi-check-circle',     label: 'OK' },
+  bad_remote:  { color: 'warning', icon: 'mdi-cloud-alert',     label: '远程缺失' },
+  bad_local:   { color: 'warning', icon: 'mdi-folder-alert',    label: '本地缺失' },
+  bad_both:    { color: 'error',   icon: 'mdi-close-circle',    label: '两端均缺' },
+  bad_format:  { color: 'error',   icon: 'mdi-alert-circle',    label: '格式错' },
+}
+function statusMeta(s) { return STATUS_META[s] || STATUS_META.bad_format }
+
+async function checkPathMap() {
+  pathMapCheckLoading.value = true
+  pathMapCheckError.value = ''
+  try {
+    const body = { raw: pathMapInput.value || '' }
+    const r = await props.api.post(`${pluginBase.value}/validate_path_map`, body)
+    const d = unwrapResponse(r)
+    // 兼容后端返回 { ok, summary, lines, source } 也兼容顶层包 data
+    const payload = d && d.data ? d.data : d
+    pathMapCheckResult.value = payload || null
+    if (!payload) {
+      pathMapCheckError.value = '后端未返回数据'
+    }
+  } catch (e) {
+    pathMapCheckError.value = e?.message || '校验失败'
+    pathMapCheckResult.value = null
+  } finally {
+    pathMapCheckLoading.value = false
+  }
 }
 
 // ================= 数据加载 =================
@@ -201,48 +236,37 @@ defineExpose({ loadSeed, loadLocal })
 </script>
 
 <template>
-  <div class="ss-root pa-2 mx-auto" style="max-width: 1180px">
+  <div class="ss-root pa-2" style="max-width: 1180px">
     <!-- 顶部工具条 -->
     <div class="d-flex align-center mb-2 flex-wrap ga-2">
-      <v-btn-toggle v-model="mode" mandatory rounded="lg">
+      <v-btn-toggle v-model="mode" density="compact" mandatory rounded="lg">
         <v-btn value="seed" size="small"><v-icon left>mdi-radar</v-icon>做种统计</v-btn>
         <v-btn value="local" size="small"><v-icon left>mdi-folder-search</v-icon>本地清理</v-btn>
       </v-btn-toggle>
       <v-spacer />
       <template v-if="mode === 'seed'">
-        <v-chip :color="seedLoading ? 'grey' : 'primary'">
+        <v-chip density="compact" :color="seedLoading ? 'grey' : 'primary'">
           {{ seedLoading ? '加载中…' : (stats.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn color="primary" variant="flat" size="small"
+        <v-btn density="compact" color="primary" variant="flat" size="small"
           :loading="seedLoading" @click="loadSeed()">
           <v-icon left>mdi-refresh</v-icon>刷新
         </v-btn>
-        <v-btn color="info" variant="tonal" size="small"
+        <v-btn density="compact" color="info" variant="tonal" size="small"
           @click="triggerScan('seed').then(() => toastMsg('已开始后台统计…', 'info'))">
           <v-icon left>mdi-play</v-icon>扫描
         </v-btn>
       </template>
       <template v-else>
-        <v-chip :color="localLoading ? 'grey' : 'primary'">
+        <v-chip density="compact" :color="localLoading ? 'grey' : 'primary'">
           {{ localLoading ? '加载中…' : (ldata.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn color="info" variant="tonal" size="small"
+        <v-btn density="compact" color="info" variant="tonal" size="small"
           @click="triggerScan('local')">
           <v-icon left>mdi-play</v-icon>本地扫描
         </v-btn>
       </template>
-      <v-btn color="secondary" variant="tonal" size="small" prepend-icon="mdi-cog"
-        @click="settingsOpen = true">设置</v-btn>
     </div>
-
-    <!-- 内嵌设置弹框 -->
-    <v-dialog v-model="settingsOpen" max-width="880" scrollable>
-      <v-card>
-        <v-card-text class="pa-0" style="max-height: 72vh">
-          <Config v-if="settingsOpen" :api="api" @close="settingsOpen = false" @switch="settingsOpen = false" />
-        </v-card-text>
-      </v-card>
-    </v-dialog>
 
     <!-- 顶部提示条 -->
     <v-alert v-if="toast" density="compact" type="success" variant="tonal" class="mb-2">{{ toast }}</v-alert>
@@ -410,6 +434,97 @@ defineExpose({ loadSeed, loadLocal })
           </v-card>
         </v-col>
       </v-row>
+
+      <!-- 磁盘路径映射校验:把 path_map 文本贴到这里,点「校验」逐行确认远程/本地前缀是否存在 -->
+      <v-card class="mb-2" variant="outlined">
+        <v-card-title class="text-subtitle-1 py-2 d-flex align-center ga-2">
+          <v-icon>mdi-map-marker-path</v-icon>
+          磁盘路径映射校验
+          <v-spacer />
+          <v-btn density="compact" color="primary" variant="flat" size="small"
+            :loading="pathMapCheckLoading" @click="checkPathMap">
+            <v-icon left>mdi-check-decagram</v-icon>校验
+          </v-btn>
+        </v-card-title>
+        <v-card-text>
+          <v-textarea
+            v-model="pathMapInput"
+            label="path_map (留空则校验已保存到插件配置的值)"
+            rows="3"
+            density="compact"
+            variant="outlined"
+            hint="每行 / 每 | 一项;格式: 远程前缀 = 本地根目录 (也支持 -> / =>)。校验只检查前缀是否存在,不写任何文件。"
+            persistent-hint
+          />
+          <v-alert v-if="pathMapCheckError" type="error" density="compact" variant="tonal" class="mt-2">
+            {{ pathMapCheckError }}
+          </v-alert>
+          <template v-if="pathMapCheckResult">
+            <div class="d-flex flex-wrap ga-1 mt-2">
+              <v-chip size="small" :color="pathMapCheckResult.ok ? 'success' : 'error'" variant="flat">
+                <v-icon left>{{ pathMapCheckResult.ok ? 'mdi-check-circle' : 'mdi-alert-circle' }}</v-icon>
+                {{ pathMapCheckResult.ok ? '全部通过' : '存在异常' }}
+              </v-chip>
+              <v-chip size="small" variant="tonal">共 {{ pathMapCheckResult.summary.total }} 行</v-chip>
+              <v-chip size="small" color="success" variant="tonal" v-if="pathMapCheckResult.summary.ok">
+                <v-icon left>mdi-check</v-icon>OK {{ pathMapCheckResult.summary.ok }}
+              </v-chip>
+              <v-chip size="small" color="warning" variant="tonal" v-if="pathMapCheckResult.summary.bad_remote">
+                远程缺失 {{ pathMapCheckResult.summary.bad_remote }}
+              </v-chip>
+              <v-chip size="small" color="warning" variant="tonal" v-if="pathMapCheckResult.summary.bad_local">
+                本地缺失 {{ pathMapCheckResult.summary.bad_local }}
+              </v-chip>
+              <v-chip size="small" color="error" variant="tonal" v-if="pathMapCheckResult.summary.bad_both">
+                两端均缺 {{ pathMapCheckResult.summary.bad_both }}
+              </v-chip>
+              <v-chip size="small" color="error" variant="tonal" v-if="pathMapCheckResult.summary.bad_format">
+                格式错 {{ pathMapCheckResult.summary.bad_format }}
+              </v-chip>
+              <v-spacer />
+              <small class="text-grey">校验源: {{ pathMapCheckResult.source }}</small>
+            </div>
+            <v-data-table
+              v-if="pathMapCheckResult.lines && pathMapCheckResult.lines.length"
+              :headers="[
+                { title: '#',         key: 'line_no', width: 50 },
+                { title: '原始行',    key: 'raw' },
+                { title: '远程前缀',  key: 'remote' },
+                { title: '本地前缀',  key: 'local' },
+                { title: '校验结果',  key: 'status', width: 130 },
+              ]"
+              :items="pathMapCheckResult.lines"
+              :items-per-page="50"
+              density="compact"
+              class="elevation-0 mt-2"
+            >
+              <template #item.line_no="{ item }">
+                <span class="text-grey">{{ item.line_no }}</span>
+              </template>
+              <template #item.raw="{ item }">
+                <code class="text-caption">{{ item.raw }}</code>
+              </template>
+              <template #item.remote="{ item }">
+                <code class="text-caption" :class="{ 'text-warning': !item.remote }">{{ item.remote || '—' }}</code>
+              </template>
+              <template #item.local="{ item }">
+                <code class="text-caption" :class="{ 'text-warning': !item.local }">{{ item.local || '—' }}</code>
+              </template>
+              <template #item.status="{ item }">
+                <v-tooltip :text="item.msg || ''" location="top">
+                  <template #activator="{ props: tip }">
+                    <v-chip v-bind="tip" size="x-small" :color="statusMeta(item.status).color" variant="flat">
+                      <v-icon left size="x-small">{{ statusMeta(item.status).icon }}</v-icon>
+                      {{ statusMeta(item.status).label }}
+                    </v-chip>
+                  </template>
+                </v-tooltip>
+              </template>
+            </v-data-table>
+            <div v-else class="text-grey text-caption mt-2">没有可校验的行 (留空?)</div>
+          </template>
+        </v-card-text>
+      </v-card>
 
       <v-alert type="info" density="compact" variant="tonal" class="mb-2">
         仅对“扫描后不在任何做种种子内的文件”列为候选,删除需人工勾选确认;种子内文件绝不会被误判为可删除。
