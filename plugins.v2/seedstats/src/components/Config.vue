@@ -1,28 +1,35 @@
 <template>
   <div class="plugin-config" style="padding: 16px">
-    <div class="d-flex justify-end ga-2 ss-sticky-bar">
+    <div class="d-flex align-center ga-2 ss-sticky-bar">
+      <v-icon color="primary" class="mr-1">mdi-tune-variant</v-icon>
+      <span class="text-subtitle-1 font-weight-bold">做种统计 - 设置</span>
+      <v-spacer />
       <v-btn variant="text" prepend-icon="mdi-chart-donut" @click="emit('switch')">查看统计</v-btn>
-      <v-btn variant="text" @click="emit('close')">取消</v-btn>
-      <v-btn color="primary" :loading="saving" @click="saveConfig">保存</v-btn>
+      <v-btn variant="text" prepend-icon="mdi-close" @click="emit('close')">取消</v-btn>
+      <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" class="px-5"
+        :loading="saving" @click="saveConfig">保存</v-btn>
     </div>
 
     <v-alert v-if="error" type="error" class="mb-4" variant="tonal">{{ error }}</v-alert>
 
     <div class="text-subtitle-1 font-weight-bold mt-2 mb-2">基本设置</div>
-    <v-row dense>
-      <v-col cols="12" md="4">
-        <v-switch v-model="config.enabled" label="启用插件" color="primary" inset density="compact"
-          hide-details></v-switch>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-switch v-model="config.local_scan" label="启用每日本地对比" color="primary" inset density="compact"
-          title="定时对比磁盘,生成可删候选清单(不会自动删)" hide-details></v-switch>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-switch v-model="config.notify" label="扫描完成通知" color="primary" inset density="compact"
-          title="统计/对比完成后的推送提醒" hide-details></v-switch>
-      </v-col>
-    </v-row>
+    <v-card variant="outlined" class="pa-3">
+      <div class="d-flex flex-wrap ga-4 align-center">
+        <v-switch v-model="config.enabled" label="启用插件" color="primary"
+          density="compact" hide-details inset
+          style="min-width: 110px"></v-switch>
+        <v-divider vertical class="mx-1"></v-divider>
+        <v-switch v-model="config.local_scan" label="每日本地对比" color="primary"
+          density="compact" hide-details inset
+          title="定时对比磁盘,生成可删候选清单(不会自动删)"
+          style="min-width: 130px"></v-switch>
+        <v-divider vertical class="mx-1"></v-divider>
+        <v-switch v-model="config.notify" label="扫描完成通知" color="primary"
+          density="compact" hide-details inset
+          title="统计/对比完成后的推送提醒"
+          style="min-width: 120px"></v-switch>
+      </div>
+    </v-card>
 
     <div class="text-subtitle-1 font-weight-bold mt-4 mb-2">调度周期 (5段cron, 宿主时区)</div>
     <v-row dense>

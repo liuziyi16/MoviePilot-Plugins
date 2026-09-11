@@ -38,12 +38,29 @@ const emptyDirs = computed(() => ldata.value.empty_dirs || [])
 
 // ---------- 通用 ----------
 const toast = ref('')
+const unidentifiedOpen = ref(false)  // 未识别站点列表默认折叠
 const errorMsg = ref('')
 
 function showToast(msg) {
   toast.value = msg
   setTimeout(() => (toast.value = ''), 2600)
 }
+
+// 状态名 -> 颜色 + 图标 (供 chip 用)
+const STATE_META = {
+  '做种中':  { color: 'success', icon: 'mdi-upload' },
+  '下载中':  { color: 'info',    icon: 'mdi-download' },
+  '暂停':    { color: 'warning', icon: 'mdi-pause-circle' },
+  '检查中':  { color: 'info',    icon: 'mdi-magnify-scan' },
+  '排队中':  { color: 'grey',    icon: 'mdi-clock-outline' },
+  '下载待定':{ color: 'grey',    icon: 'mdi-clock-outline' },
+  '做种待定':{ color: 'grey',    icon: 'mdi-clock-outline' },
+  '等待':    { color: 'grey',    icon: 'mdi-clock-outline' },
+  '错误':    { color: 'error',   icon: 'mdi-alert-circle' },
+  '移动中':  { color: 'info',    icon: 'mdi-folder-arrow-right' },
+}
+function stateChipColor(name) { return STATE_META[name]?.color || 'grey' }
+function stateChipIcon(name)  { return STATE_META[name]?.icon || 'mdi-circle-small' }
 function notify(msg, kind = 'info') {
   showToast(msg)
 }
@@ -250,38 +267,34 @@ defineExpose({ loadSeed, loadLocal })
       </v-btn-toggle>
       <v-spacer />
       <template v-if="mode === 'seed'">
-        <v-chip density="compact" :color="seedLoading ? 'grey' : 'primary'">
+        <v-chip density="comfortable" size="small" variant="tonal"
+          :color="seedLoading ? 'grey' : 'primary'">
+          <v-icon start size="small">mdi-clock-outline</v-icon>
           {{ seedLoading ? '加载中…' : (stats.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn density="compact" color="primary" variant="flat" size="small"
-          :loading="seedLoading" @click="loadSeed()">
-          <v-icon left>mdi-refresh</v-icon>刷新
-        </v-btn>
-        <v-btn density="compact" color="info" variant="tonal" size="small"
-          @click="triggerScan('seed').then(() => toastMsg('已开始后台统计…', 'info'))">
-          <v-icon left>mdi-play</v-icon>扫描
-        </v-btn>
-        <template v-if="hideTitle">
-          <v-btn density="compact" variant="tonal" size="small"
-            prepend-icon="mdi-cog" @click="emit('switch')">回到设置</v-btn>
-          <v-btn density="compact" variant="text" size="small"
-            prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
-        </template>
+        <v-btn color="primary" variant="flat" size="default"
+          prepend-icon="mdi-refresh" :loading="seedLoading" @click="loadSeed()">刷新</v-btn>
+        <v-btn color="info" variant="tonal" size="default" prepend-icon="mdi-play"
+          @click="triggerScan('seed').then(() => toastMsg('已开始后台统计…', 'info'))">扫描</v-btn>
+        <v-btn v-if="hideTitle" variant="tonal" size="default"
+          prepend-icon="mdi-cog-outline" @click="emit('switch')">打开设置</v-btn>
+        <v-btn v-if="hideTitle" variant="text" size="default"
+          prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
       </template>
       <template v-else>
-        <v-chip density="compact" :color="localLoading ? 'grey' : 'primary'">
+        <v-chip density="comfortable" size="small" variant="tonal"
+          :color="localLoading ? 'grey' : 'primary'">
+          <v-icon start size="small">mdi-clock-outline</v-icon>
           {{ localLoading ? '加载中…' : (ldata.updated_at || '尚未扫描') }}
         </v-chip>
-        <v-btn density="compact" color="info" variant="tonal" size="small"
-          @click="triggerScan('local')">
-          <v-icon left>mdi-play</v-icon>本地扫描
-        </v-btn>
-        <template v-if="hideTitle">
-          <v-btn density="compact" variant="tonal" size="small"
-            prepend-icon="mdi-cog" @click="emit('switch')">回到设置</v-btn>
-          <v-btn density="compact" variant="text" size="small"
-            prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
-        </template>
+        <v-btn color="primary" variant="flat" size="default"
+          prepend-icon="mdi-refresh" :loading="localLoading" @click="loadLocal()">刷新</v-btn>
+        <v-btn color="info" variant="tonal" size="default" prepend-icon="mdi-play"
+          @click="triggerScan('local')">本地扫描</v-btn>
+        <v-btn v-if="hideTitle" variant="tonal" size="default"
+          prepend-icon="mdi-cog-outline" @click="emit('switch')">打开设置</v-btn>
+        <v-btn v-if="hideTitle" variant="text" size="default"
+          prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
       </template>
     </div>
 
@@ -429,28 +442,43 @@ defineExpose({ loadSeed, loadLocal })
         </v-data-table>
       </v-card>
 
-      <!-- 状态分布 -->
+      <!-- 状态分布: 排序后展示, 加颜色区分 -->
       <v-card class="mb-2" variant="outlined">
-        <v-card-title class="text-subtitle-1 py-2">任务状态分布</v-card-title>
-        <div class="pa-2 d-flex flex-wrap ga-1">
-          <v-chip v-for="s in stateRows" :key="s.state" density="compact" variant="tonal">
-            {{ s.state }} · <b>{{ fmtInt(s.count) }}</b>
+        <v-card-title class="text-subtitle-1 py-2 d-flex align-center ga-2">
+          <v-icon size="small">mdi-state-machine</v-icon>
+          任务状态分布
+          <v-chip v-if="stateRows.length" size="x-small" variant="tonal">{{ stateRows.length }} 种</v-chip>
+        </v-card-title>
+        <div class="pa-2 d-flex flex-wrap ga-2">
+          <v-chip v-for="row in stateRows" :key="row.state"
+            :color="stateChipColor(row.state)" variant="tonal" size="default">
+            <v-icon start size="small">{{ stateChipIcon(row.state) }}</v-icon>
+            {{ row.state }} · <b class="ml-1">{{ fmtInt(row.count) }}</b>
+            <span class="text-caption text-grey ml-2">({{ formatSize(row.size) }})</span>
           </v-chip>
-          <span v-if="!stateRows.length" class="text-grey">暂无数据</span>
+          <span v-if="!stateRows.length" class="text-grey text-body-2">暂无数据</span>
         </div>
       </v-card>
 
-      <!-- 未识别站点 -->
+      <!-- 未识别站点: 默认收起, 展开看完整列表 -->
       <v-card v-if="unidentified.length" variant="outlined">
-        <v-card-title class="text-subtitle-1 py-2">未识别站点种子(供排查站点识别)</v-card-title>
-        <div class="pa-2 max-h-200 overflow-auto">
-          <div v-for="(u, i) in unidentified.slice(0, 40)" :key="i" class="d-flex justify-space-between">
-            <span class="text-body-2">{{ u.name }}</span>
+        <v-card-title class="text-subtitle-1 py-2 d-flex align-center ga-2"
+          style="cursor: pointer" @click="unidentifiedOpen = !unidentifiedOpen">
+          <v-icon size="small" color="warning">mdi-help-circle-outline</v-icon>
+          未识别站点种子
+          <v-chip size="x-small" color="warning" variant="tonal">{{ unidentified.length }} 条</v-chip>
+          <v-spacer />
+          <v-btn :icon="unidentifiedOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            size="x-small" variant="text"></v-btn>
+        </v-card-title>
+        <div v-if="unidentifiedOpen" class="pa-2 max-h-300 overflow-auto">
+          <div v-for="(u, i) in unidentified" :key="i"
+            class="d-flex justify-space-between py-1 border-b">
+            <span class="text-body-2 text-truncate" :title="u.name" style="max-width: 70%">
+              {{ u.name }}
+            </span>
             <small class="text-grey">{{ u.downloader }}</small>
           </div>
-          <span v-if="unidentified.length > 40" class="text-grey text-caption">
-            还有 {{ unidentified.length - 40 }} 项未显示
-          </span>
         </div>
       </v-card>
     </div>
@@ -564,13 +592,18 @@ defineExpose({ loadSeed, loadLocal })
                 <span class="text-grey">{{ item.line_no }}</span>
               </template>
               <template #item.raw="{ item }">
-                <code class="text-caption">{{ item.raw }}</code>
+                <code class="text-caption text-truncate d-block" :title="item.raw"
+                  style="max-width: 380px">{{ item.raw }}</code>
               </template>
               <template #item.remote="{ item }">
-                <code class="text-caption" :class="{ 'text-warning': !item.remote }">{{ item.remote || '—' }}</code>
+                <code class="text-caption text-truncate d-inline-block" :title="item.remote"
+                  :class="{ 'text-warning': !item.remote }"
+                  style="max-width: 200px">{{ item.remote || '—' }}</code>
               </template>
               <template #item.local="{ item }">
-                <code class="text-caption" :class="{ 'text-warning': !item.local }">{{ item.local || '—' }}</code>
+                <code class="text-caption text-truncate d-inline-block" :title="item.local"
+                  :class="{ 'text-warning': !item.local }"
+                  style="max-width: 200px">{{ item.local || '—' }}</code>
               </template>
               <template #item.status="{ item }">
                 <v-tooltip :text="item.msg || ''" location="top">
@@ -648,7 +681,7 @@ defineExpose({ loadSeed, loadLocal })
 </template>
 
 <style scoped>
-.max-h-200 {
-  max-height: 200px;
-}
+.max-h-200 { max-height: 200px; }
+.max-h-300 { max-height: 300px; }
+.border-b { border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06); }
 </style>
