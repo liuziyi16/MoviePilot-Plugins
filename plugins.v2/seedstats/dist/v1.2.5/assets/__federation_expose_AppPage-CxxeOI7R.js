@@ -145,6 +145,10 @@ const pathMapCheckError = ref('');
 // 状态 -> 颜色 + 图标。集中放便于前端一致渲染
 const STATUS_META = {
   ok:          { color: 'success', icon: 'mdi-check-circle',     label: 'OK' },
+  // 本地是宿主路径, mountinfo 源端可见 (bind-mount 部署) -> 视为通过
+  ok_host:     { color: 'info',    icon: 'mdi-link-variant',    label: '宿主路径' },
+  // 本地是宿主路径, 容器/mountinfo 都不可直接验证 -> 启发式通过
+  ok_guess:    { color: 'info',    icon: 'mdi-help-circle',     label: '宿主路径' },
   bad_remote:  { color: 'warning', icon: 'mdi-cloud-alert',     label: '远程缺失' },
   bad_local:   { color: 'warning', icon: 'mdi-folder-alert',    label: '本地缺失' },
   bad_both:    { color: 'error',   icon: 'mdi-close-circle',    label: '两端均缺' },
@@ -1107,9 +1111,28 @@ return (_ctx, _cache) => {
                                 _: 1
                               }))
                             : _createCommentVNode("", true),
-                          (pathMapCheckResult.value.summary.bad_remote)
+                          ((pathMapCheckResult.value.summary.ok_host || 0) + (pathMapCheckResult.value.summary.ok_guess || 0) > 0)
                             ? (_openBlock(), _createBlock(_component_v_chip, {
                                 key: 1,
+                                size: "small",
+                                color: "info",
+                                variant: "tonal"
+                              }, {
+                                default: _withCtx(() => [
+                                  _createVNode(_component_v_icon, { left: "" }, {
+                                    default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
+                                      _createTextVNode("mdi-link-variant", -1)
+                                    ]))]),
+                                    _: 1
+                                  }),
+                                  _createTextVNode(" 宿主路径 " + _toDisplayString((pathMapCheckResult.value.summary.ok_host || 0) + (pathMapCheckResult.value.summary.ok_guess || 0)), 1)
+                                ]),
+                                _: 1
+                              }))
+                            : _createCommentVNode("", true),
+                          (pathMapCheckResult.value.summary.bad_remote)
+                            ? (_openBlock(), _createBlock(_component_v_chip, {
+                                key: 2,
                                 size: "small",
                                 color: "warning",
                                 variant: "tonal"
@@ -1122,7 +1145,7 @@ return (_ctx, _cache) => {
                             : _createCommentVNode("", true),
                           (pathMapCheckResult.value.summary.bad_local)
                             ? (_openBlock(), _createBlock(_component_v_chip, {
-                                key: 2,
+                                key: 3,
                                 size: "small",
                                 color: "warning",
                                 variant: "tonal"
@@ -1135,7 +1158,7 @@ return (_ctx, _cache) => {
                             : _createCommentVNode("", true),
                           (pathMapCheckResult.value.summary.bad_both)
                             ? (_openBlock(), _createBlock(_component_v_chip, {
-                                key: 3,
+                                key: 4,
                                 size: "small",
                                 color: "error",
                                 variant: "tonal"
@@ -1148,7 +1171,7 @@ return (_ctx, _cache) => {
                             : _createCommentVNode("", true),
                           (pathMapCheckResult.value.summary.bad_format)
                             ? (_openBlock(), _createBlock(_component_v_chip, {
-                                key: 4,
+                                key: 5,
                                 size: "small",
                                 color: "error",
                                 variant: "tonal"
@@ -1239,7 +1262,7 @@ return (_ctx, _cache) => {
             variant: "tonal",
             class: "mb-2"
           }, {
-            default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
+            default: _withCtx(() => [...(_cache[46] || (_cache[46] = [
               _createTextVNode(" 仅对“扫描后不在任何做种种子内的文件”列为候选,删除需人工勾选确认;种子内文件绝不会被误判为可删除。 ", -1)
             ]))]),
             _: 1
@@ -1284,12 +1307,12 @@ return (_ctx, _cache) => {
             }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_icon, { left: "" }, {
-                  default: _withCtx(() => [...(_cache[46] || (_cache[46] = [
+                  default: _withCtx(() => [...(_cache[47] || (_cache[47] = [
                     _createTextVNode("mdi-trash-can", -1)
                   ]))]),
                   _: 1
                 }),
-                _cache[47] || (_cache[47] = _createTextVNode("删除所选 ", -1))
+                _cache[48] || (_cache[48] = _createTextVNode("删除所选 ", -1))
               ]),
               _: 1
             }, 8, ["disabled"]),
@@ -1301,7 +1324,7 @@ return (_ctx, _cache) => {
               disabled: !removables.value.length,
               onClick: _cache[9] || (_cache[9] = $event => {selected.value = removables.value.map(x => x.rel); deleteSelected();})
             }, {
-              default: _withCtx(() => [...(_cache[48] || (_cache[48] = [
+              default: _withCtx(() => [...(_cache[49] || (_cache[49] = [
                 _createTextVNode(" 清空所有候选 ", -1)
               ]))]),
               _: 1
@@ -1316,7 +1339,7 @@ return (_ctx, _cache) => {
             }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_icon, { left: "" }, {
-                  default: _withCtx(() => [...(_cache[49] || (_cache[49] = [
+                  default: _withCtx(() => [...(_cache[50] || (_cache[50] = [
                     _createTextVNode("mdi-folder-remove", -1)
                   ]))]),
                   _: 1
@@ -1370,6 +1393,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-2110a6a7"]]);
+const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-9260205b"]]);
 
 export { AppPage as default };

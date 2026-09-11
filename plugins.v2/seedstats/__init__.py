@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.4"
+    plugin_version = "1.2.5"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -1078,7 +1078,16 @@ class SeedStats(_PluginBase):
 
 
     def _map_remote_to_local(self, remote: str) -> Optional[str]:
-        """按 path_map:用配置里最长的远程前缀命中的替换;返回本地绝对路径。"""
+        """按 path_map:用配置里最长的远程前缀命中的替换;返回本地绝对路径。
+
+        找不到容器内可用的本地前缀时, 不强行返回 None:
+          - 配置的 local 容器内可见 -> mapped
+          - 配置的 local 容器内不可见但 mountinfo 源端可见 -> mapped
+            (bind-mount 部署)
+          - 都不在 -> 返回 remote 原值, 让上层 _compare_local_trees 用
+            os.walk 直接打;打不开时再报错。这样 NAS 上的真实路径即使
+            没显式挂载 (btrfs 同子卷 mountinfo 源端是块设备) 也能尝试访问。
+        """
         if not remote:
             return None
         norm = remote.replace("\\", "/").rstrip("/")
@@ -1089,15 +1098,66 @@ class SeedStats(_PluginBase):
             if not rkey:
                 continue
             if norm == rkey:
-                # 完全相等,直接取本地根(即使继续嵌套亦按精确命中)
-                return lp.replace("\\", "/").rstrip("/") or norm
+                mapped = lp.replace("\\", "/").rstrip("/") or norm
+                if self._local_path_usable(mapped):
+                    return mapped
+                if self._is_host_path(mapped):
+                    return mapped
+                return norm  # 退化到原值
             if norm.startswith(rkey + "/") and len(rkey) > best_len:
                 best_len = len(rkey)
                 best_local = lp.replace("\\", "/").rstrip("/")
         if best_local:
             suffix = norm[best_len:]          # 含前导 '/'
-            return (best_local + suffix) or norm
+            mapped = (best_local + suffix) or norm
+            if self._local_path_usable(mapped):
+                return mapped
+            if self._is_host_path(best_local):
+                return mapped
+            return norm  # 退化到原值
         return None
+
+    def _local_path_usable(self, p: str) -> bool:
+        """给定 path_map 配置的 local 路径, 判断容器内是否可直接访问。
+
+        只检查路径前两段(top + sub)是否存在 —— 不递归, 避免对大目录做 stat;
+        实际打开文件失败由 _compare_local_trees 兜底。
+        """
+        if not p or not p.startswith("/"):
+            return False
+        parts = [x for x in p.split("/") if x]
+        if not parts:
+            return False
+        # 先试完整路径(用户配的就是 /a/b/c, 可能 a 存在但 /a 不直接可见)
+        if os.path.exists(p):
+            return True
+        # 否则逐级向上找到第一个存在的祖先
+        cur = "/"
+        for part in parts:
+            cur = os.path.join(cur, part)
+            if os.path.exists(cur):
+                return True
+        return False
+
+    def _is_host_path(self, p: str) -> bool:
+        """给定一个容器外路径, 反查宿主挂载表判断它是否为挂载源端。"""
+        if not p:
+            return False
+        n = self._normalize_for_match(p)
+        if not n:
+            return False
+        if not hasattr(self, "_host_sources_cache"):
+            mounts = self._read_mountinfo()
+            cache: List[str] = []
+            for src, _mp in mounts:
+                nn = self._normalize_for_match(src)
+                if nn and nn not in cache:
+                    cache.append(nn)
+            self._host_sources_cache = cache
+        for src_norm in self._host_sources_cache:
+            if n == src_norm or n.startswith(src_norm + "/"):
+                return True
+        return False
 
     def _in_exclude(self, abspath: str) -> bool:
         """若本地路径命中任一配置的排除前缀,返回 True。"""
@@ -1426,11 +1486,46 @@ class SeedStats(_PluginBase):
     #   bad_local  - 本地前缀不存在(可能 NAS 路径写错)
     #   bad_both   - 两端均不存在
     #   bad_format - 分隔符缺失或两边都空
-    PATH_OK = "ok"
+    PATH_OK = "ok"                  # 远程+本地均容器内可见
+    PATH_OK_HOST = "ok_host"         # 本地是宿主路径, mountinfo 源端可见 (bind-mount)
+    PATH_OK_GUESS = "ok_guess"       # 本地是宿主路径, 无法直接验证, 视为通过
     PATH_BAD_REMOTE = "bad_remote"
     PATH_BAD_LOCAL = "bad_local"
     PATH_BAD_BOTH = "bad_both"
     PATH_BAD_FORMAT = "bad_format"
+
+    @staticmethod
+    def _read_mountinfo() -> List[Tuple[str, str]]:
+        """读 /proc/self/mountinfo, 返回 [(宿主源路径, 容器内挂载点), ...]。
+
+        MP 跑在容器里,校验 path_map 本地前缀时,直接 os.path.exists 看不到
+        NAS 宿主路径。但容器的 bind mount 一定在 /proc/self/mountinfo 里
+        登记, 源端是宿主绝对路径 —— 用宿主侧路径去匹配, 就能反推出
+        "NAS 上这条路径确实存在 / 挂到了容器某个点"。
+        """
+        out: List[Tuple[str, str]] = []
+        try:
+            with open("/proc/self/mountinfo", "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) < 10 or "-" not in parts:
+                        continue
+                    sep = parts.index("-")
+                    if len(parts) < sep + 3:
+                        continue
+                    mount_point = parts[4]
+                    source = parts[sep + 2]
+                    if source and mount_point and source != "none":
+                        out.append((source, mount_point))
+        except Exception:
+            pass
+        return out
+
+    @staticmethod
+    def _normalize_for_match(p: str) -> str:
+        if not p:
+            return ""
+        return os.path.normpath(p).replace("\\", "/").rstrip("/")
 
     @staticmethod
     def _split_path_line(line: str) -> Tuple[str, str]:
@@ -1470,9 +1565,10 @@ class SeedStats(_PluginBase):
             raw = "\n".join(f"{rp}={lp}" for rp, lp in (self._path_map or {}).items())
 
         results: List[Dict[str, Any]] = []
-        counts = {"total": 0, self.PATH_OK: 0, self.PATH_BAD_FORMAT: 0,
-                  self.PATH_BAD_REMOTE: 0, self.PATH_BAD_LOCAL: 0,
-                  self.PATH_BAD_BOTH: 0}
+        counts = {"total": 0, self.PATH_OK: 0, self.PATH_OK_HOST: 0,
+                  self.PATH_OK_GUESS: 0,
+                  self.PATH_BAD_FORMAT: 0, self.PATH_BAD_REMOTE: 0,
+                  self.PATH_BAD_LOCAL: 0, self.PATH_BAD_BOTH: 0}
 
         # 与 _parse_list 一致:支持换行 / '|' 两种分隔
         items: List[str] = []
@@ -1481,6 +1577,29 @@ class SeedStats(_PluginBase):
                 frag = frag.strip()
                 if frag:
                     items.append(frag)
+
+        # 启发式校验: 格式 + 远程端可达是硬要求; 本地端走三档
+        #   - 容器内可见          -> 本地 OK (最强)
+        #   - mountinfo 源端可见   -> 宿主路径 OK (bind-mount 部署)
+        #   - 都不在              -> 视为"宿主路径(无法直接验证)", 不报红,
+        #                              但文案提醒"扫描侧实际以该路径打开, 失败时报"
+        #                              (典型: NAS btrfs 同子卷, mountinfo 源端
+        #                               是块设备不是宿主路径)
+        mounts = self._read_mountinfo()
+        host_sources_norm: List[str] = []
+        for src, _mp in mounts:
+            n = self._normalize_for_match(src)
+            if n and n not in host_sources_norm:
+                host_sources_norm.append(n)
+
+        def host_side_exists(local_path: str) -> bool:
+            n = self._normalize_for_match(local_path)
+            if not n:
+                return False
+            for src_norm in host_sources_norm:
+                if n == src_norm or n.startswith(src_norm + "/"):
+                    return True
+            return False
 
         for idx, line in enumerate(items, start=1):
             counts["total"] += 1
@@ -1493,24 +1612,47 @@ class SeedStats(_PluginBase):
                 })
                 counts[self.PATH_BAD_FORMAT] += 1
                 continue
-            remote_exists = os.path.exists(remote)
-            local_exists = os.path.exists(local)
-            if remote_exists and local_exists:
-                status = self.PATH_OK
-                msg = "远程与本地前缀均存在"
-            elif not remote_exists and not local_exists:
-                status = self.PATH_BAD_BOTH
-                msg = "远程与本地前缀均不存在"
-            elif not remote_exists:
-                status = self.PATH_BAD_REMOTE
-                msg = "远程前缀不存在(检查下载器挂载或拼写)"
+            remote_in_container = os.path.exists(remote)
+            local_in_container = os.path.exists(local)
+            local_on_host = (host_side_exists(local)
+                             if not local_in_container else False)
+            if local_in_container:
+                local_status = "container"
+                local_msg_extra = ""
+            elif local_on_host:
+                local_status = "host_mount"
+                local_msg_extra = "(宿主路径, bind-mount 到容器某点)"
             else:
-                status = self.PATH_BAD_LOCAL
-                msg = "本地前缀不存在(检查 NAS 路径或权限)"
+                local_status = "host_guess"
+                local_msg_extra = "(宿主路径, 容器/mountinfo 不可直接验证; 扫描侧会以该路径打开, 失败时再报)"
+
+            if remote_in_container and local_status == "container":
+                status = self.PATH_OK
+                msg = "远程与本地前缀均存在(容器内)"
+            elif remote_in_container and local_status == "host_mount":
+                status = self.PATH_OK_HOST
+                msg = "远程容器内可见, 本地为宿主路径" + local_msg_extra
+            elif remote_in_container and local_status == "host_guess":
+                status = self.PATH_OK_GUESS
+                msg = "远程容器内可见, 本地" + local_msg_extra
+            elif not remote_in_container and local_status == "container":
+                status = self.PATH_BAD_REMOTE
+                msg = "远程前缀不存在(检查下载器挂载或拼写); 本地容器内可见"
+            elif not remote_in_container and local_status == "host_mount":
+                status = self.PATH_BAD_REMOTE
+                msg = "远程前缀不存在(检查下载器挂载或拼写); 本地宿主路径" + local_msg_extra
+            elif not remote_in_container and local_status == "host_guess":
+                status = self.PATH_BAD_REMOTE
+                msg = "远程前缀不存在(检查下载器挂载或拼写); 本地" + local_msg_extra
+            else:
+                status = self.PATH_BAD_BOTH
+                msg = "远程与本地前缀均不存在(检查下载器挂载和 NAS 路径)"
             results.append({
                 "line_no": idx, "raw": line, "remote": remote, "local": local,
                 "status": status, "msg": msg,
-                "remote_exists": remote_exists, "local_exists": local_exists,
+                "remote_in_container": remote_in_container,
+                "local_status": local_status,
+                "local_on_host": local_on_host,
             })
             counts[status] += 1
 
@@ -1518,7 +1660,7 @@ class SeedStats(_PluginBase):
             "ok": counts[self.PATH_BAD_FORMAT] == 0
                   and counts[self.PATH_BAD_REMOTE] == 0
                   and counts[self.PATH_BAD_LOCAL] == 0
-                  and counts[self.PATH_BAD_BOTH] == 0,
+                  and counts[self.PATH_BAD_BOTH] == 0,  # host_*, guess 均视为通过
             "source": "body.raw" if not use_loaded else "loaded",
             "summary": counts,
             "lines": results,

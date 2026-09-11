@@ -67,6 +67,10 @@ const pathMapCheckError = ref('')
 // 状态 -> 颜色 + 图标。集中放便于前端一致渲染
 const STATUS_META = {
   ok:          { color: 'success', icon: 'mdi-check-circle',     label: 'OK' },
+  // 本地是宿主路径, mountinfo 源端可见 (bind-mount 部署) -> 视为通过
+  ok_host:     { color: 'info',    icon: 'mdi-link-variant',    label: '宿主路径' },
+  // 本地是宿主路径, 容器/mountinfo 都不可直接验证 -> 启发式通过
+  ok_guess:    { color: 'info',    icon: 'mdi-help-circle',     label: '宿主路径' },
   bad_remote:  { color: 'warning', icon: 'mdi-cloud-alert',     label: '远程缺失' },
   bad_local:   { color: 'warning', icon: 'mdi-folder-alert',    label: '本地缺失' },
   bad_both:    { color: 'error',   icon: 'mdi-close-circle',    label: '两端均缺' },
@@ -521,6 +525,11 @@ defineExpose({ loadSeed, loadLocal })
               <v-chip size="small" variant="tonal">共 {{ pathMapCheckResult.summary.total }} 行</v-chip>
               <v-chip size="small" color="success" variant="tonal" v-if="pathMapCheckResult.summary.ok">
                 <v-icon left>mdi-check</v-icon>OK {{ pathMapCheckResult.summary.ok }}
+              </v-chip>
+              <v-chip size="small" color="info" variant="tonal"
+                      v-if="(pathMapCheckResult.summary.ok_host || 0) + (pathMapCheckResult.summary.ok_guess || 0) > 0">
+                <v-icon left>mdi-link-variant</v-icon>
+                宿主路径 {{ (pathMapCheckResult.summary.ok_host || 0) + (pathMapCheckResult.summary.ok_guess || 0) }}
               </v-chip>
               <v-chip size="small" color="warning" variant="tonal" v-if="pathMapCheckResult.summary.bad_remote">
                 远程缺失 {{ pathMapCheckResult.summary.bad_remote }}
