@@ -50,7 +50,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.1.1"
+    plugin_version = "1.2.0"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -432,14 +432,18 @@ class SeedStats(_PluginBase):
 
     @staticmethod
     def _parse_suffixes(raw: Any) -> Dict[str, Dict[str, str]]:
-        """每行: 站点名:后缀1,后缀2  存成 {站点: {后缀: 站点名}} 便于O(1)匹配。"""
+        """每行: 站点名:后缀1,后缀2  存成 {站点: {后缀: 站点名}} 便于O(1)匹配。
+
+        分隔符支持中英文逗号/分号 (, ; ， ;) — 任选一种都可; 保留大小写不敏感, suffix 存大写。
+        """
         result: Dict[str, Dict[str, str]] = {}
+        sep_re = re.compile(r"[,;；，]")
         for line in SeedStats._parse_list(raw):
             if ":" in line:
                 site, _, suffixes = line.partition(":")
                 key = site.strip().lower()
                 result[key] = {}
-                for suf in suffixes.split(","):
+                for suf in sep_re.split(suffixes):
                     suf = suf.strip().upper()
                     if suf:
                         result[key][suf] = site.strip()
@@ -447,13 +451,17 @@ class SeedStats(_PluginBase):
 
     @staticmethod
     def _parse_domains(raw: Any) -> Dict[str, set]:
-        """每行: 站点名:域名1,域名2  存成 {站点: {域名...}}。"""
+        """每行: 站点名:域名1,域名2  存成 {站点: {域名...}}。
+
+        分隔符支持中英文逗号/分号 (, ; ， ;) — 任选一种都可; 域名存小写便于大小写不敏感匹配。
+        """
         result: Dict[str, set] = {}
+        sep_re = re.compile(r"[,;；，]")
         for line in SeedStats._parse_list(raw):
             if ":" in line:
                 site, _, domains = line.partition(":")
                 result[site.strip()] = {
-                    d.strip().lower() for d in domains.split(",") if d.strip()
+                    d.strip().lower() for d in sep_re.split(domains) if d.strip()
                 }
         return result
 
@@ -775,7 +783,8 @@ class SeedStats(_PluginBase):
         """对归一化种子生成统计视图:按站点/州/官组聚合大小+做种数量。"""
         site_rows: Dict[str, dict] = {}
         state_rows: Dict[str, dict] = {}
-        off_rows: Dict[str, dict] = {}    # 站点名(=site 最短命中) -> 累计
+        off_rows: Dict[str, dict] = {}     # 官组: 站点名 -> 累计
+        unmatch_rows: Dict[str, dict] = {}  # 非官组: 站点名 -> 累计 (同站点没命中后缀的种子)
         unidentified: List[dict] = []
         totals = {"size": 0, "count": 0, "seeding": 0,
                   "seeding_size": 0, "ratio_sum": 0.0}
@@ -809,6 +818,16 @@ class SeedStats(_PluginBase):
                 if item.get("seeding"):
                     og["seeding_count"] += 1
                     og["seeding_size"] += size
+                else:
+                    # 非官组: 站点识别了但种子名没命中后缀
+                    ug = unmatch_rows.setdefault(site, {
+                        "site": site, "count": 0, "seeding_count": 0,
+                        "size": 0, "seeding_size": 0})
+                    ug["count"] += 1
+                    ug["size"] += size
+                    if item.get("seeding"):
+                        ug["seeding_count"] += 1
+                        ug["seeding_size"] += size
             # 状态
             sr = state_rows.setdefault(st, {"state": st, "count": 0, "size": 0})
             sr["count"] += 1
@@ -821,6 +840,7 @@ class SeedStats(_PluginBase):
             "sites": sorted(site_rows.values(), key=lambda x: -x["size"]),
             "states": sorted(state_rows.values(), key=lambda x: -x["count"]),
             "official_groups": sorted(off_rows.values(), key=lambda x: -x["size"]),
+            "unmatched_groups": sorted(unmatch_rows.values(), key=lambda x: -x["size"]),
             "unidentified": unidentified[:200],  # 限制长度,防缓存过大
             "overall": {
                 "size": totals["size"],

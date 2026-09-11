@@ -22,6 +22,7 @@ const stats = computed(() => seed.value || {})
 const overall = computed(() => stats.value.overall || {})
 const siteRows = computed(() => stats.value.sites || [])
 const groupRows = computed(() => stats.value.official_groups || [])
+const unmatchedGroups = computed(() => stats.value.unmatched_groups || [])
 const stateRows = computed(() => stats.value.states || [])
 const unidentified = computed(() => stats.value.unidentified || [])
 
@@ -48,7 +49,7 @@ function notify(msg, kind = 'info') {
 }
 
 // 简化通知:官方主应用会把 toast/snack 注入 props;这里做兜底
-const emit = defineEmits(['message'])
+const emit = defineEmits(['message', 'close', 'switch'])
 function toastMsg(text, color) {
   toast.value = text
   emit('message', { text, color: color || 'info' })
@@ -256,6 +257,12 @@ defineExpose({ loadSeed, loadLocal })
           @click="triggerScan('seed').then(() => toastMsg('已开始后台统计…', 'info'))">
           <v-icon left>mdi-play</v-icon>扫描
         </v-btn>
+        <template v-if="hideTitle">
+          <v-btn density="compact" variant="tonal" size="small"
+            prepend-icon="mdi-cog" @click="emit('switch')">回到设置</v-btn>
+          <v-btn density="compact" variant="text" size="small"
+            prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
+        </template>
       </template>
       <template v-else>
         <v-chip density="compact" :color="localLoading ? 'grey' : 'primary'">
@@ -265,6 +272,12 @@ defineExpose({ loadSeed, loadLocal })
           @click="triggerScan('local')">
           <v-icon left>mdi-play</v-icon>本地扫描
         </v-btn>
+        <template v-if="hideTitle">
+          <v-btn density="compact" variant="tonal" size="small"
+            prepend-icon="mdi-cog" @click="emit('switch')">回到设置</v-btn>
+          <v-btn density="compact" variant="text" size="small"
+            prepend-icon="mdi-close" @click="emit('close')">关闭</v-btn>
+        </template>
       </template>
     </div>
 
@@ -363,6 +376,28 @@ defineExpose({ loadSeed, loadLocal })
             { title: '做种中', key: 'seeding_count' },
           ]"
           :items="groupRows"
+          :items-per-page="-1"
+          density="compact"
+        >
+          <template #item.count="{ item }">{{ fmtInt(item.count) }}</template>
+          <template #item.size="{ item }">{{ formatSize(item.size) }}</template>
+          <template #item.seeding_count="{ item }">{{ fmtInt(item.seeding_count) }}</template>
+        </v-data-table>
+      </v-card>
+
+      <!-- 非官组种子(仅当存在时) -->
+      <v-card v-if="unmatchedGroups.length" class="mb-2" variant="outlined">
+        <v-card-title class="text-subtitle-1 py-2">
+          非官组种子 <v-chip size="small" color="grey">{{ unmatchedGroups.length }} 站</v-chip>
+        </v-card-title>
+        <v-data-table
+          :headers="[
+            { title: '站点', key: 'site' },
+            { title: '种子数', key: 'count' },
+            { title: '体积', key: 'size' },
+            { title: '做种中', key: 'seeding_count' },
+          ]"
+          :items="unmatchedGroups"
           :items-per-page="-1"
           density="compact"
         >
