@@ -3,7 +3,7 @@
         "name": "做种统计",
         "description": "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。",
         "labels": "做种,统计,整理",
-        "version": "1.2.9",
+        "version": "1.3.0",
         "icon": "seedstats.png",
         "author": "liuziyi16",
         "level": 1,
@@ -30,7 +30,8 @@
             "v1.2.6": "UI 优化: 工具条按钮加高, 加'打开设置', 三个开关改横向紧凑布局, 状态 chip 加图标颜色, 未识别列表默认折叠",
             "v1.2.7": "修本地对比空结果 (roots/covered 拆分 + remote 原值 fallback); Config 三个开关缩小",
             "v1.2.8": "本地对比: path_map 改为优化项, 拆 container_path/host_path 双返回值, 解决 NAS 路径覆盖不全",
-            "v1.2.9": "路径三层换算 qB容器->NAS->MP容器, 加 deployment_warnings 提示挂载问题"
+            "v1.2.9": "路径三层换算 qB容器->NAS->MP容器, 加 deployment_warnings 提示挂载问题",
+            "v1.3.0": "下载器分模式: native (宿主/套件) 不走 path_map, container (容器) 走三层换算"
         }
     },
     "ShortCutModified": {

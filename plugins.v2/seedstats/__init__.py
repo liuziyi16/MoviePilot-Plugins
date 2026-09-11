@@ -37,6 +37,11 @@ DEFAULT_CONFIG = {
     "seed_cron": DEFAULT_SEED_CRON,
     "local_cron": DEFAULT_LOCAL_CRON,
     "downloaders": [],
+    # 每个下载器的部署方式: key=downloader 名字 (来自 MP Downloaders 配置),
+    # value="container" (容器化部署, 需要 path_map 换算) 或
+    #        "native"    (宿主/套件部署, 直接用 save_path 当本地路径)
+    # 未配置的下载器默认 "container" (保守: 走 path_map)
+    "downloader_modes": {},
     "site_suffixes": "",
     "site_domains": "",
     "path_map": "",
@@ -47,11 +52,15 @@ DEFAULT_CONFIG = {
 class SeedStats(_PluginBase):
     """做种统计与本地对比插件(V2, Vue 渲染)。"""
 
+    # 下载器部署模式常量
+    MODE_CONTAINER = "container"   # 容器化部署, 走 path_map 三层换算
+    MODE_NATIVE = "native"         # 宿主/套件部署, 直接用 save_path 当本地路径
+
     # 插件元信息
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.9"
+    plugin_version = "1.3.0"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -88,6 +97,17 @@ class SeedStats(_PluginBase):
             self._downloaders = config.get("downloaders") or []
             self._exclude_paths = self._parse_list(config.get("exclude_paths"))
             self._path_map = self._parse_map(config.get("path_map"))
+            # downloader_modes 是个 dict, 存盘结构 {name: "container"|"native"}
+            # 非法值兜底为 "container"; 加载时统一归一化为 {name: mode}
+            raw_modes = config.get("downloader_modes") or {}
+            if not isinstance(raw_modes, dict):
+                raw_modes = {}
+            self._downloader_modes: Dict[str, str] = {
+                str(k): (str(v).lower() if str(v).lower() in
+                          (self.MODE_CONTAINER, self.MODE_NATIVE)
+                          else self.MODE_CONTAINER)
+                for k, v in raw_modes.items()
+            }
             self._site_suffixes = self._parse_suffixes(config.get("site_suffixes"))
             self._site_domains = self._parse_domains(config.get("site_domains"))
             self._local_scan = config.get("local_scan") or False
@@ -978,8 +998,8 @@ class SeedStats(_PluginBase):
                             continue
                         for t in torrents or []:
                             self._collect_covered(
-                                client, d_type, t, roots, roots_seen,
-                                anchors_visible, warn)
+                                client, d_type, t, name, roots,
+                                roots_seen, anchors_visible, warn)
                     except Exception as e:
                         warn.append(f"{name}:遍历种子异常:{e}")
             except Exception as e:
@@ -1009,18 +1029,16 @@ class SeedStats(_PluginBase):
                 pass
 
     def _collect_covered(self, client: Any, d_type: str, t: Any,
+                         downloader_name: str,
                          roots: List[str], roots_seen: set,
                          anchors_visible: Dict[str, set],
                          warn: List[str]) -> None:
-        """为单个种子取其磁盘根(remote 保存目录),换算为本地锚点。
-        v1.2.7: roots 与 anchors_visible 分开管理:
-          - roots: 始终记录每个种子的容器视角锚点(去重);即便容器看不见
-            也会传给 _compare_local_trees, 由它决定 os.walk 能否跑通
-          - anchors_visible: 仅当 anchor 容器内可见时收集 covered 文件;
-            避免 covered 集跟 walk 集不在同一 inode 命名空间
+        """[v1.3.0] 按 downloader 的部署模式决定走 path_map 还是直接用原路径
+          - native (宿主/套件部署, 如 TR 套件): save_path 本身就是 MP 容器
+            可见的本地路径, 直接当 root; 不走 path_map
+          - container (容器化部署, 如 qB 容器): 走 _resolve_local_path 三层换算
         """
         try:
-            # 种子保存根(remote 可见)
             if d_type == "qbittorrent":
                 remote_root = getattr(t, "save_path", "") or ""
             else:
@@ -1028,6 +1046,40 @@ class SeedStats(_PluginBase):
             if not remote_root:
                 warn.append(f"{getattr(t,'name','?')}:无保存路径,跳过")
                 return
+            mode = self._downloader_modes.get(downloader_name,
+                                              self.MODE_CONTAINER)
+            if mode == self.MODE_NATIVE:
+                # 宿主/套件部署: save_path 就是 MP 容器内可见路径
+                local_root = os.path.normpath(remote_root)
+                if self._in_exclude(local_root):
+                    return
+                if local_root not in roots_seen:
+                    roots.append(local_root)
+                    roots_seen.add(local_root)
+                if os.path.isdir(local_root):
+                    covered = anchors_visible.setdefault(local_root, set())
+                    # 构造种子文件本地绝对路径直接收集
+                    save = (getattr(t, "save_path", "")
+                            if d_type == "qbittorrent"
+                            else getattr(t, "download_dir", "")) or ""
+                    tid = (t.hash if d_type == "qbittorrent"
+                           else (getattr(t, "hashString", "")
+                                 or getattr(t, "hash", "")))
+                    try:
+                        flist = client.get_files(tid) or []
+                    except Exception:
+                        flist = []
+                    for f in flist:
+                        nm = (getattr(f, "name", "")
+                              if not isinstance(f, dict)
+                              else f.get("name", "")) or ""
+                        if not nm:
+                            continue
+                        full = os.path.normpath(os.path.join(save, nm))
+                        if full.startswith(local_root):
+                            covered.add(full)
+                return
+            # container 模式: 走三层换算
             container_path, nas_path = self._resolve_local_path(remote_root)
             if not nas_path:
                 warn.append(f"{getattr(t,'name','?')}:路径 {remote_root} "
@@ -1035,18 +1087,14 @@ class SeedStats(_PluginBase):
                 return
             if self._in_exclude(nas_path):
                 return
-            # roots 用 nas_path (跨容器可标识的稳定路径, 也是 deployment
-            # 检测的 key)
             if nas_path not in roots_seen:
                 roots.append(nas_path)
                 roots_seen.add(nas_path)
-            # covered 必须跟 os.walk 同空间 -> 用 container_path (容器内可见)
             if container_path and os.path.isdir(container_path):
                 covered = anchors_visible.setdefault(nas_path, set())
                 for local_file in self._fetch_streams_local(client, d_type, t):
                     if local_file:
                         covered.add(local_file)
-            # 容器内看不到 -> covered 收不到, deployment_warnings 会提示挂载
         except Exception as e:
             warn.append(f"收集种子覆盖文件出错:{e}")
 
@@ -1058,10 +1106,9 @@ class SeedStats(_PluginBase):
         if d_type == "qbittorrent":
             tid = t.hash
             content = getattr(t, "content_path", "") or ""
-            if not content:
-                return out
-            # 单文件种子:content_path 即本体文件
-            if os.path.isfile(self._map_remote_to_local(content) or content):
+            # 单文件种子:content_path 即本体文件, 直接处理完 return
+            if content and os.path.isfile(
+                    self._map_remote_to_local(content) or content):
                 try:
                     rem = self._map_remote_to_local(content)
                     if rem:
@@ -1069,6 +1116,7 @@ class SeedStats(_PluginBase):
                 except Exception:
                     pass
                 return out
+            # 多文件种子:content_path 为空, 走 get_files(tid) 拿完整列表
             try:
                 flist = client.get_files(tid) or []
             except Exception:
@@ -1104,8 +1152,11 @@ class SeedStats(_PluginBase):
 
 
     def _map_remote_to_local(self, remote: str) -> Optional[str]:
-        """[v1.2.9 兼容保留] 返回容器内可见路径 (给 _fetch_streams_local 用)."""
-        return self._resolve_local_path(remote)[0]
+        """[v1.2.9 兼容保留] 返回容器内可见路径.
+        [v1.3.0] 改返回 nas_path (NAS 路径) —— covered 必须跟 os.walk 同空间,
+        而 os.walk 走的 root 是 nas_path (宿主路径), 所以 covered 也用 nas_path.
+        """
+        return self._resolve_local_path(remote)[1]
 
     def _resolve_local_path(self, remote: str) -> Tuple[Optional[str], Optional[str]]:
         """[v1.2.9] 把 remote (qB 容器视角) 换算成 (container_path, nas_path):
@@ -1249,8 +1300,14 @@ class SeedStats(_PluginBase):
         # remote 原值没有 covered, 这些 root 会全列候选 (即"看到的全部
         # 不是种子的文件") —— 这是保守做法, 不会误删种子内文件
         def _safe_walk_base(root: str) -> Optional[str]:
-            """[v1.2.9] root 是 nas_path; 查容器挂载表反查容器内挂载点.
-            没有直接 None (deployment_warnings 会提示挂载问题)"""
+            """[v1.3.0] root 是 nas_path 或 native 模式下的 save_path;
+            优先级:
+              1. root 本身容器内可见 (native 部署, 路径 = MP 容器内真实路径)
+              2. 容器挂载表反查 (container 模式, nas_path -> 容器内挂载点)
+              3. 都失败 -> None (deployment_warnings 提示)
+            """
+            if root and os.path.isdir(root):
+                return os.path.normpath(root)
             container = self._map_nas_to_container(root)
             if container and os.path.isdir(container):
                 return os.path.normpath(container)

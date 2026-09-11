@@ -47,8 +47,27 @@
     <v-row dense>
       <v-col cols="12">
         <v-select v-model="config.downloaders" :items="downloaderOptions" item-title="title" item-value="value"
-          label="参与统计的下载器" multiple chips closable-chips variant="outlined"
+          label="参与统计的下载器" multiple variant="outlined"
           hint="留空 = 统计所有已启用下载器" persistent-hint :loading="loadingDownloaders"></v-select>
+        <!-- 每个选中下载器的部署方式: 容器化(走 path_map) / 本地(直接用 save_path) -->
+        <div v-if="config.downloaders && config.downloaders.length"
+             class="d-flex flex-wrap ga-2 mt-3">
+          <div v-for="name in config.downloaders" :key="name"
+               class="d-flex align-center ga-2 px-2 py-1"
+               style="border: 1px solid rgba(var(--v-theme-on-surface), 0.12); border-radius: 4px;">
+            <v-icon size="small" :color="getDownloaderMode(name) === MODE_CONTAINER ? 'warning' : 'success'">
+              {{ getDownloaderMode(name) === MODE_CONTAINER ? 'mdi-docker' : 'mdi-server' }}
+            </v-icon>
+            <span class="text-body-2">{{ name }}</span>
+            <v-chip size="x-small"
+              :color="getDownloaderMode(name) === MODE_CONTAINER ? 'warning' : 'success'"
+              variant="tonal" @click="toggleDownloaderMode(name)"
+              style="cursor: pointer">
+              {{ getDownloaderMode(name) === MODE_CONTAINER ? '容器化 (需 path_map)' : '本地/套件' }}
+              <v-icon end size="x-small">mdi-swap-horizontal</v-icon>
+            </v-chip>
+          </div>
+        </div>
       </v-col>
       <v-col cols="12" md="6">
         <div class="d-flex align-center mb-1">
@@ -260,11 +279,15 @@ const DEFAULTS = {
   seed_cron: '',
   local_cron: '',
   downloaders: [],
+  // key=下载器名, value=MODE_CONTAINER (容器化, 走 path_map) 或 MODE_NATIVE (本地/套件)
+  downloader_modes: {},
   site_suffixes: '',
   site_domains: '',
   path_map: '',
   exclude_paths: '',
 }
+const MODE_CONTAINER = 'container'  // 容器化部署: 走 path_map 三层换算
+const MODE_NATIVE = 'native'        // 宿主/套件部署: 直接用 save_path 当本地路径
 
 const config = reactive({ ...DEFAULTS })
 const saving = ref(false)
@@ -272,6 +295,18 @@ const error = ref(null)
 const snackbar = reactive({ show: false, text: '', color: 'success' })
 const downloaderOptions = ref([])
 const loadingDownloaders = ref(false)
+// 部署模式: 从 config.downloader_modes 读取, 缺失默认 container
+const downloaderModes = ref({})
+function getDownloaderMode(name) {
+  return downloaderModes.value[name] || MODE_CONTAINER
+}
+function toggleDownloaderMode(name) {
+  const cur = getDownloaderMode(name)
+  downloaderModes.value = {
+    ...downloaderModes.value,
+    [name]: cur === MODE_CONTAINER ? MODE_NATIVE : MODE_CONTAINER,
+  }
+}
 // 站点规则(结构化编辑, 保存时序列化回字符串): [{site, values: []}] 一站点一行
 const suffixRules = ref([])
 const domainRules = ref([])
@@ -436,6 +471,10 @@ onMounted(async () => {
   }
   suffixRules.value = parseRules(config.site_suffixes)
   domainRules.value = parseRules(config.site_domains)
+  // 加载已保存的部署模式
+  if (config.downloader_modes && typeof config.downloader_modes === 'object') {
+    downloaderModes.value = { ...config.downloader_modes }
+  }
   await Promise.all([loadDownloaders(), loadSites()])
 })
 
@@ -466,6 +505,13 @@ async function saveConfig() {
   try {
     config.site_suffixes = serializeRules(suffixRules.value)
     config.site_domains = serializeRules(domainRules.value)
+    // 同步下载器部署模式 (去掉已不存在的下载器键)
+    const active = new Set(config.downloaders || [])
+    const cleaned = {}
+    for (const k of Object.keys(downloaderModes.value || {})) {
+      if (active.has(k)) cleaned[k] = downloaderModes.value[k]
+    }
+    config.downloader_modes = cleaned
     await props.api.put('plugin/SeedStats', { ...config })
     snackbar.text = '配置已保存'
     snackbar.color = 'success'

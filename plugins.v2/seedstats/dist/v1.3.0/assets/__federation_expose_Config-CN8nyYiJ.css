@@ -1,5 +1,5 @@
 
-.ss-sticky-bar[data-v-44445290] {
+.ss-sticky-bar[data-v-64eb75a5] {
   position: sticky;
   top: 0;
   z-index: 5;
@@ -10,6 +10,6 @@
 }
 /* 三个开关压缩: density=compact 在 v3 是 32px; 进一步缩到 ~26px
    (label 字号 + 轨道缩小, 用户嫌"按钮上下宽度太大"由此降一档) */
-.ss-tiny-switch[data-v-44445290] {
+.ss-tiny-switch[data-v-64eb75a5] {
   min-height: 28px;
 }
