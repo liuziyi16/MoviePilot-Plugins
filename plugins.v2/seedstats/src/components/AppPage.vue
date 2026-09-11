@@ -317,6 +317,14 @@ defineExpose({ loadSeed, loadLocal })
         <v-col cols="6" sm="4" md="2">
           <v-card variant="tonal">
             <v-card-text class="pa-2 text-center">
+              <div class="text-caption text-grey">暂停</div>
+              <div class="text-h6">{{ fmtInt(overall.paused_count) }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        <v-col cols="6" sm="4" md="2">
+          <v-card variant="tonal">
+            <v-card-text class="pa-2 text-center">
               <div class="text-caption text-grey">做种体积</div>
               <div class="text-h6">{{ formatSize(overall.seeding_size) }}</div>
             </v-card-text>
@@ -341,6 +349,7 @@ defineExpose({ loadSeed, loadLocal })
             { title: '种子数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
             { title: '官组', key: 'official' },
           ]"
           :items="siteRows"
@@ -354,6 +363,11 @@ defineExpose({ loadSeed, loadLocal })
           <template #item.count="{ item }">{{ fmtInt(item.count) }}</template>
           <template #item.size="{ item }">{{ formatSize(item.size) }}</template>
           <template #item.seeding_count="{ item }">{{ fmtInt(item.seeding_count) }}</template>
+          <template #item.paused_count="{ item }">
+            <span :class="Number(item.paused_count) > 0 ? 'text-warning' : 'text-grey'">
+              {{ fmtInt(item.paused_count) }}
+            </span>
+          </template>
           <template #item.official="{ item }">
             <v-chip size="x-small" color="purple" v-if="Number(item.official) > 0">
               {{ item.official }}
@@ -374,6 +388,7 @@ defineExpose({ loadSeed, loadLocal })
             { title: '官组数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
           ]"
           :items="groupRows"
           :items-per-page="-1"
@@ -382,6 +397,7 @@ defineExpose({ loadSeed, loadLocal })
           <template #item.count="{ item }">{{ fmtInt(item.count) }}</template>
           <template #item.size="{ item }">{{ formatSize(item.size) }}</template>
           <template #item.seeding_count="{ item }">{{ fmtInt(item.seeding_count) }}</template>
+          <template #item.paused_count="{ item }">{{ fmtInt(item.paused_count) }}</template>
         </v-data-table>
       </v-card>
 
@@ -396,6 +412,7 @@ defineExpose({ loadSeed, loadLocal })
             { title: '种子数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
           ]"
           :items="unmatchedGroups"
           :items-per-page="-1"
@@ -404,6 +421,7 @@ defineExpose({ loadSeed, loadLocal })
           <template #item.count="{ item }">{{ fmtInt(item.count) }}</template>
           <template #item.size="{ item }">{{ formatSize(item.size) }}</template>
           <template #item.seeding_count="{ item }">{{ fmtInt(item.seeding_count) }}</template>
+          <template #item.paused_count="{ item }">{{ fmtInt(item.paused_count) }}</template>
         </v-data-table>
       </v-card>
 

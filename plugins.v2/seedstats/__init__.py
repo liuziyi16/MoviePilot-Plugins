@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.3"
+    plugin_version = "1.2.4"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -616,25 +616,55 @@ class SeedStats(_PluginBase):
         mapping = {
             "downloading": "下载中", "forceddl": "下载中",
             "stalleddl": "下载中", "metadl": "下载中",
-            "allocating": "下载中", "queueddl": "排队中",
+            "forcedmetadl": "下载中", "allocating": "下载中",
+            "queueddl": "排队中",
+            # 暂停: qB 4.6 前为 paused*, 4.6+ 改名 stopped*; 两套都要认
             "pauseddl": "暂停", "stoppeddl": "暂停",
+            "pausedup": "暂停", "stoppedup": "暂停",
             "error": "错误", "missingfiles": "错误",
             "uploading": "做种中", "stalledup": "做种中",
-            "forcedup": "做种中", "checkingup": "做种中",
-            "checkingdl": "检查中", "checkingresume": "检查中",
+            "forcedup": "做种中",
+            # 校验中不是做种, 单列
+            "checkingup": "检查中", "checkingdl": "检查中",
+            "checkingresume": "检查中", "queuedforchecking": "检查中",
             "queuedup": "排队中", "queued": "排队中",
+            "moving": "移动中", "unknown": "其他",
         }
         return mapping.get(state, "其他")
 
     def _tr_state_text(self, status: Any) -> str:
-        """TR 的 status 为 str/int 数字;映射到中文。"""
+        """TR 状态归一化。
+
+        transmission-rpc 的 Torrent.status 返回 Status 枚举, 值是**字符串**
+        ('seeding'/'stopped'/'downloading'/'checking'/'check pending'/
+         'download pending'/'seed pending')。老版本 RPC 或直接取 raw field
+        时才是数字。两种都要认 —— 只按 int() 解析会让所有 TR 种子
+        ValueError 落到 0 == "暂停", 做种数恒为 0。
+        """
+        # 注意: 不能写 str(status or "") —— status==0 (TR 老版"暂停") 会被吞成空串
+        s = ("" if status is None else str(status)).strip().lower()
+        str_map = {
+            "seeding": "做种中",
+            "stopped": "暂停",
+            "downloading": "下载中",
+            "checking": "检查中",
+            "check pending": "检查中",
+            "check_pending": "检查中",
+            "download pending": "排队中",
+            "download_pending": "排队中",
+            "seed pending": "排队中",
+            "seed_pending": "排队中",
+        }
+        if s in str_map:
+            return str_map[s]
+        # 回退: 老版数字协议
         try:
-            st = int(status)
+            st = int(s)
         except (TypeError, ValueError):
-            st = 0
+            return "其他"
         tr_map = {
-            0: "暂停", 1: "等待", 2: "检查中", 3: "下载待定",
-            4: "下载中", 5: "做种待定", 6: "做种中",
+            0: "暂停", 1: "检查中", 2: "检查中", 3: "排队中",
+            4: "下载中", 5: "排队中", 6: "做种中",
         }
         return tr_map.get(st, "其他")
 
@@ -648,7 +678,7 @@ class SeedStats(_PluginBase):
                 return None
             state = self._torrent_state(getattr(t, "state", ""))
             size = int(getattr(t, "size", 0) or 0)
-            is_complete = state in ("做种中", "检查中", "暂停") or float(
+            is_complete = state == "做种中" or float(
                 getattr(t, "progress", 0) or 0) >= 1
             # 站点归因(以 tracker 主域)
             domains = self._tracker_domains_qb(t)
@@ -663,7 +693,8 @@ class SeedStats(_PluginBase):
                 "size": size,
                 "state": state,
                 "complete": bool(is_complete),
-                "seeding": state in ("做种中", "检查中"),
+                "seeding": state == "做种中",
+                "paused": state == "暂停",
                 "official": False,          # 占位,官组在 _scan_seed 里按站点合并重判
                 "site": site_name,
                 "sites": (sites or {"未识别"}),
@@ -716,7 +747,8 @@ class SeedStats(_PluginBase):
                 "size": size,
                 "state": state,
                 "complete": bool(getattr(t, "left_until_done", 0) == 0),
-                "seeding": state in ("做种中", "检查中"),
+                "seeding": state == "做种中",
+                "paused": state == "暂停",
                 "official": False,
                 "site": "、".join(known_sites),
                 "sites": set(known_sites),
@@ -818,48 +850,63 @@ class SeedStats(_PluginBase):
         off_rows: Dict[str, dict] = {}     # 官组: 站点名 -> 累计
         unmatch_rows: Dict[str, dict] = {}  # 非官组: 站点名 -> 累计 (同站点没命中后缀的种子)
         unidentified: List[dict] = []
-        totals = {"size": 0, "count": 0, "seeding": 0,
-                  "seeding_size": 0, "ratio_sum": 0.0}
+        totals = {"size": 0, "count": 0, "seeding": 0, "seeding_size": 0,
+                  "paused": 0, "paused_size": 0, "ratio_sum": 0.0}
         for item in torrents:
             size = item.get("size", 0) or 0
             site = item.get("site") or "未识别"
             st = item.get("state", "其他")
+            is_seed = bool(item.get("seeding"))
+            # paused 字段由归一化层给出; 兼容旧缓存则回退按 state 判断
+            is_paused = bool(item.get("paused")) or st == "暂停"
             totals["size"] += size
             totals["count"] += 1
             totals["ratio_sum"] += float(item.get("ratio", 0) or 0)
-            if item.get("seeding"):
+            if is_seed:
                 totals["seeding"] += 1
                 totals["seeding_size"] += size
+            if is_paused:
+                totals["paused"] += 1
+                totals["paused_size"] += size
             # 站点
             rr = site_rows.setdefault(site, {
                 "site": site, "count": 0, "size": 0,
-                "seeding_count": 0, "seeding_size": 0, "official": 0})
+                "seeding_count": 0, "seeding_size": 0,
+                "paused_count": 0, "paused_size": 0, "official": 0})
             rr["count"] += 1
             rr["size"] += size
-            if item.get("seeding"):
+            if is_seed:
                 rr["seeding_count"] += 1
                 rr["seeding_size"] += size
+            if is_paused:
+                rr["paused_count"] += 1
+                rr["paused_size"] += size
+            # 官组 / 非官组 必须是对称的 if-else (旧代码 else 错挂在内层
+            # if item.get("seeding") 上, 导致非官组桶只收到官组里没做种的那部分)
             if item.get("official"):
                 rr["official"] += 1
-                # 归并到官组行(按站点为 key,若同一站配多个官组后缀,统一归一组)
                 og = off_rows.setdefault(site, {
                     "site": site, "count": 0, "seeding_count": 0,
-                    "size": 0, "seeding_size": 0})
+                    "paused_count": 0, "size": 0, "seeding_size": 0})
                 og["count"] += 1
                 og["size"] += size
-                if item.get("seeding"):
+                if is_seed:
                     og["seeding_count"] += 1
                     og["seeding_size"] += size
-                else:
-                    # 非官组: 站点识别了但种子名没命中后缀
-                    ug = unmatch_rows.setdefault(site, {
-                        "site": site, "count": 0, "seeding_count": 0,
-                        "size": 0, "seeding_size": 0})
-                    ug["count"] += 1
-                    ug["size"] += size
-                    if item.get("seeding"):
-                        ug["seeding_count"] += 1
-                        ug["seeding_size"] += size
+                if is_paused:
+                    og["paused_count"] += 1
+            else:
+                # 非官组: 站点识别了但种子名没命中后缀
+                ug = unmatch_rows.setdefault(site, {
+                    "site": site, "count": 0, "seeding_count": 0,
+                    "paused_count": 0, "size": 0, "seeding_size": 0})
+                ug["count"] += 1
+                ug["size"] += size
+                if is_seed:
+                    ug["seeding_count"] += 1
+                    ug["seeding_size"] += size
+                if is_paused:
+                    ug["paused_count"] += 1
             # 状态
             sr = state_rows.setdefault(st, {"state": st, "count": 0, "size": 0})
             sr["count"] += 1
@@ -879,6 +926,8 @@ class SeedStats(_PluginBase):
                 "count": totals["count"],
                 "seeding_count": totals["seeding"],
                 "seeding_size": totals["seeding_size"],
+                "paused_count": totals["paused"],
+                "paused_size": totals["paused_size"],
                 "avg_ratio": round(totals["ratio_sum"] / totals["count"], 3)
                 if totals["count"] else 0,
             },

@@ -35,7 +35,7 @@ function fmtRatio(value) {
   return Number.isFinite(num) ? num.toFixed(2) : '0.00'
 }
 
-const {createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,createVNode:_createVNode,toDisplayString:_toDisplayString,Fragment:_Fragment,openBlock:_openBlock,createElementBlock:_createElementBlock,createCommentVNode:_createCommentVNode,createElementVNode:_createElementVNode,createBlock:_createBlock,unref:_unref,renderList:_renderList,normalizeClass:_normalizeClass,mergeProps:_mergeProps} = await importShared('vue');
+const {createTextVNode:_createTextVNode,resolveComponent:_resolveComponent,withCtx:_withCtx,createVNode:_createVNode,toDisplayString:_toDisplayString,Fragment:_Fragment,openBlock:_openBlock,createElementBlock:_createElementBlock,createCommentVNode:_createCommentVNode,createElementVNode:_createElementVNode,createBlock:_createBlock,unref:_unref,normalizeClass:_normalizeClass,renderList:_renderList,mergeProps:_mergeProps} = await importShared('vue');
 
 
 const _hoisted_1 = {
@@ -49,34 +49,35 @@ const _hoisted_5 = { class: "text-h6" };
 const _hoisted_6 = { class: "text-h6" };
 const _hoisted_7 = { class: "text-h6" };
 const _hoisted_8 = { class: "text-h6" };
-const _hoisted_9 = { key: 1 };
-const _hoisted_10 = { class: "pa-2 d-flex flex-wrap ga-1" };
-const _hoisted_11 = {
+const _hoisted_9 = { class: "text-h6" };
+const _hoisted_10 = { key: 1 };
+const _hoisted_11 = { class: "pa-2 d-flex flex-wrap ga-1" };
+const _hoisted_12 = {
   key: 0,
   class: "text-grey"
 };
-const _hoisted_12 = { class: "pa-2 max-h-200 overflow-auto" };
-const _hoisted_13 = { class: "text-body-2" };
-const _hoisted_14 = { class: "text-grey" };
-const _hoisted_15 = {
+const _hoisted_13 = { class: "pa-2 max-h-200 overflow-auto" };
+const _hoisted_14 = { class: "text-body-2" };
+const _hoisted_15 = { class: "text-grey" };
+const _hoisted_16 = {
   key: 0,
   class: "text-grey text-caption"
 };
-const _hoisted_16 = { key: 4 };
-const _hoisted_17 = { class: "text-h6" };
-const _hoisted_18 = { class: "text-h6 text-error" };
-const _hoisted_19 = { class: "text-h6 text-primary" };
-const _hoisted_20 = { class: "text-h6" };
-const _hoisted_21 = { class: "d-flex flex-wrap ga-1 mt-2" };
-const _hoisted_22 = { class: "text-grey" };
+const _hoisted_17 = { key: 4 };
+const _hoisted_18 = { class: "text-h6" };
+const _hoisted_19 = { class: "text-h6 text-error" };
+const _hoisted_20 = { class: "text-h6 text-primary" };
+const _hoisted_21 = { class: "text-h6" };
+const _hoisted_22 = { class: "d-flex flex-wrap ga-1 mt-2" };
 const _hoisted_23 = { class: "text-grey" };
-const _hoisted_24 = { class: "text-caption" };
-const _hoisted_25 = {
+const _hoisted_24 = { class: "text-grey" };
+const _hoisted_25 = { class: "text-caption" };
+const _hoisted_26 = {
   key: 1,
   class: "text-grey text-caption mt-2"
 };
-const _hoisted_26 = { class: "d-flex align-center ga-2 mb-2" };
-const _hoisted_27 = { class: "text-grey" };
+const _hoisted_27 = { class: "d-flex align-center ga-2 mb-2" };
+const _hoisted_28 = { class: "text-grey" };
 
 const {ref,computed,onMounted,onBeforeUnmount} = await importShared('vue');
 
@@ -622,8 +623,8 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[28] || (_cache[28] = _createElementVNode("div", { class: "text-caption text-grey" }, "做种体积", -1)),
-                          _createElementVNode("div", _hoisted_7, _toDisplayString(_unref(formatSize)(overall.value.seeding_size)), 1)
+                          _cache[28] || (_cache[28] = _createElementVNode("div", { class: "text-caption text-grey" }, "暂停", -1)),
+                          _createElementVNode("div", _hoisted_7, _toDisplayString(_unref(fmtInt)(overall.value.paused_count)), 1)
                         ]),
                         _: 1
                       })
@@ -643,8 +644,29 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[29] || (_cache[29] = _createElementVNode("div", { class: "text-caption text-grey" }, "平均分享率", -1)),
-                          _createElementVNode("div", _hoisted_8, _toDisplayString(_unref(fmtRatio)(overall.value.avg_ratio)), 1)
+                          _cache[29] || (_cache[29] = _createElementVNode("div", { class: "text-caption text-grey" }, "做种体积", -1)),
+                          _createElementVNode("div", _hoisted_8, _toDisplayString(_unref(formatSize)(overall.value.seeding_size)), 1)
+                        ]),
+                        _: 1
+                      })
+                    ]),
+                    _: 1
+                  })
+                ]),
+                _: 1
+              }),
+              _createVNode(_component_v_col, {
+                cols: "6",
+                sm: "4",
+                md: "2"
+              }, {
+                default: _withCtx(() => [
+                  _createVNode(_component_v_card, { variant: "tonal" }, {
+                    default: _withCtx(() => [
+                      _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
+                        default: _withCtx(() => [
+                          _cache[30] || (_cache[30] = _createElementVNode("div", { class: "text-caption text-grey" }, "平均分享率", -1)),
+                          _createElementVNode("div", _hoisted_9, _toDisplayString(_unref(fmtRatio)(overall.value.avg_ratio)), 1)
                         ]),
                         _: 1
                       })
@@ -663,7 +685,7 @@ return (_ctx, _cache) => {
           }, {
             default: _withCtx(() => [
               _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2" }, {
-                default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
+                default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
                   _createTextVNode("站点分布", -1)
                 ]))]),
                 _: 1
@@ -674,6 +696,7 @@ return (_ctx, _cache) => {
             { title: '种子数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
             { title: '官组', key: 'official' },
           ],
                 items: siteRows.value,
@@ -693,6 +716,11 @@ return (_ctx, _cache) => {
                 "item.seeding_count": _withCtx(({ item }) => [
                   _createTextVNode(_toDisplayString(_unref(fmtInt)(item.seeding_count)), 1)
                 ]),
+                "item.paused_count": _withCtx(({ item }) => [
+                  _createElementVNode("span", {
+                    class: _normalizeClass(Number(item.paused_count) > 0 ? 'text-warning' : 'text-grey')
+                  }, _toDisplayString(_unref(fmtInt)(item.paused_count)), 3)
+                ]),
                 "item.official": _withCtx(({ item }) => [
                   (Number(item.official) > 0)
                     ? (_openBlock(), _createBlock(_component_v_chip, {
@@ -705,7 +733,7 @@ return (_ctx, _cache) => {
                         ]),
                         _: 2
                       }, 1024))
-                    : (_openBlock(), _createElementBlock("span", _hoisted_9, "—"))
+                    : (_openBlock(), _createElementBlock("span", _hoisted_10, "—"))
                 ]),
                 _: 1
               }, 8, ["items"])
@@ -721,7 +749,7 @@ return (_ctx, _cache) => {
                 default: _withCtx(() => [
                   _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2" }, {
                     default: _withCtx(() => [
-                      _cache[31] || (_cache[31] = _createTextVNode(" 官方官组做种 ", -1)),
+                      _cache[32] || (_cache[32] = _createTextVNode(" 官方官组做种 ", -1)),
                       _createVNode(_component_v_chip, {
                         size: "small",
                         color: "purple"
@@ -740,6 +768,7 @@ return (_ctx, _cache) => {
             { title: '官组数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
           ],
                     items: groupRows.value,
                     "items-per-page": -1,
@@ -753,6 +782,9 @@ return (_ctx, _cache) => {
                     ]),
                     "item.seeding_count": _withCtx(({ item }) => [
                       _createTextVNode(_toDisplayString(_unref(fmtInt)(item.seeding_count)), 1)
+                    ]),
+                    "item.paused_count": _withCtx(({ item }) => [
+                      _createTextVNode(_toDisplayString(_unref(fmtInt)(item.paused_count)), 1)
                     ]),
                     _: 1
                   }, 8, ["items"])
@@ -769,7 +801,7 @@ return (_ctx, _cache) => {
                 default: _withCtx(() => [
                   _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2" }, {
                     default: _withCtx(() => [
-                      _cache[32] || (_cache[32] = _createTextVNode(" 非官组种子 ", -1)),
+                      _cache[33] || (_cache[33] = _createTextVNode(" 非官组种子 ", -1)),
                       _createVNode(_component_v_chip, {
                         size: "small",
                         color: "grey"
@@ -788,6 +820,7 @@ return (_ctx, _cache) => {
             { title: '种子数', key: 'count' },
             { title: '体积', key: 'size' },
             { title: '做种中', key: 'seeding_count' },
+            { title: '暂停', key: 'paused_count' },
           ],
                     items: unmatchedGroups.value,
                     "items-per-page": -1,
@@ -802,6 +835,9 @@ return (_ctx, _cache) => {
                     "item.seeding_count": _withCtx(({ item }) => [
                       _createTextVNode(_toDisplayString(_unref(fmtInt)(item.seeding_count)), 1)
                     ]),
+                    "item.paused_count": _withCtx(({ item }) => [
+                      _createTextVNode(_toDisplayString(_unref(fmtInt)(item.paused_count)), 1)
+                    ]),
                     _: 1
                   }, 8, ["items"])
                 ]),
@@ -814,12 +850,12 @@ return (_ctx, _cache) => {
           }, {
             default: _withCtx(() => [
               _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2" }, {
-                default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
+                default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
                   _createTextVNode("任务状态分布", -1)
                 ]))]),
                 _: 1
               }),
-              _createElementVNode("div", _hoisted_10, [
+              _createElementVNode("div", _hoisted_11, [
                 (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(stateRows.value, (s) => {
                   return (_openBlock(), _createBlock(_component_v_chip, {
                     key: s.state,
@@ -834,7 +870,7 @@ return (_ctx, _cache) => {
                   }, 1024))
                 }), 128)),
                 (!stateRows.value.length)
-                  ? (_openBlock(), _createElementBlock("span", _hoisted_11, "暂无数据"))
+                  ? (_openBlock(), _createElementBlock("span", _hoisted_12, "暂无数据"))
                   : _createCommentVNode("", true)
               ])
             ]),
@@ -847,23 +883,23 @@ return (_ctx, _cache) => {
               }, {
                 default: _withCtx(() => [
                   _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2" }, {
-                    default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
+                    default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
                       _createTextVNode("未识别站点种子(供排查站点识别)", -1)
                     ]))]),
                     _: 1
                   }),
-                  _createElementVNode("div", _hoisted_12, [
+                  _createElementVNode("div", _hoisted_13, [
                     (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(unidentified.value.slice(0, 40), (u, i) => {
                       return (_openBlock(), _createElementBlock("div", {
                         key: i,
                         class: "d-flex justify-space-between"
                       }, [
-                        _createElementVNode("span", _hoisted_13, _toDisplayString(u.name), 1),
-                        _createElementVNode("small", _hoisted_14, _toDisplayString(u.downloader), 1)
+                        _createElementVNode("span", _hoisted_14, _toDisplayString(u.name), 1),
+                        _createElementVNode("small", _hoisted_15, _toDisplayString(u.downloader), 1)
                       ]))
                     }), 128)),
                     (unidentified.value.length > 40)
-                      ? (_openBlock(), _createElementBlock("span", _hoisted_15, " 还有 " + _toDisplayString(unidentified.value.length - 40) + " 项未显示 ", 1))
+                      ? (_openBlock(), _createElementBlock("span", _hoisted_16, " 还有 " + _toDisplayString(unidentified.value.length - 40) + " 项未显示 ", 1))
                       : _createCommentVNode("", true)
                   ])
                 ]),
@@ -871,7 +907,7 @@ return (_ctx, _cache) => {
               }))
             : _createCommentVNode("", true)
         ]))
-      : (_openBlock(), _createElementBlock("div", _hoisted_16, [
+      : (_openBlock(), _createElementBlock("div", _hoisted_17, [
           _createVNode(_component_v_row, { class: "mb-2" }, {
             default: _withCtx(() => [
               _createVNode(_component_v_col, {
@@ -884,8 +920,8 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[35] || (_cache[35] = _createElementVNode("div", { class: "text-caption text-grey" }, "冗余候选", -1)),
-                          _createElementVNode("div", _hoisted_17, _toDisplayString(_unref(fmtInt)(ldata.value.removable_count)), 1)
+                          _cache[36] || (_cache[36] = _createElementVNode("div", { class: "text-caption text-grey" }, "冗余候选", -1)),
+                          _createElementVNode("div", _hoisted_18, _toDisplayString(_unref(fmtInt)(ldata.value.removable_count)), 1)
                         ]),
                         _: 1
                       })
@@ -905,8 +941,8 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[36] || (_cache[36] = _createElementVNode("div", { class: "text-caption text-grey" }, "可释放空间", -1)),
-                          _createElementVNode("div", _hoisted_18, _toDisplayString(_unref(formatSize)(ldata.value.removable_size)), 1)
+                          _cache[37] || (_cache[37] = _createElementVNode("div", { class: "text-caption text-grey" }, "可释放空间", -1)),
+                          _createElementVNode("div", _hoisted_19, _toDisplayString(_unref(formatSize)(ldata.value.removable_size)), 1)
                         ]),
                         _: 1
                       })
@@ -926,8 +962,8 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[37] || (_cache[37] = _createElementVNode("div", { class: "text-caption text-grey" }, "扫描根目录", -1)),
-                          _createElementVNode("div", _hoisted_19, _toDisplayString(_unref(fmtInt)(ldata.value.roots?.length)), 1)
+                          _cache[38] || (_cache[38] = _createElementVNode("div", { class: "text-caption text-grey" }, "扫描根目录", -1)),
+                          _createElementVNode("div", _hoisted_20, _toDisplayString(_unref(fmtInt)(ldata.value.roots?.length)), 1)
                         ]),
                         _: 1
                       })
@@ -947,8 +983,8 @@ return (_ctx, _cache) => {
                     default: _withCtx(() => [
                       _createVNode(_component_v_card_text, { class: "pa-2 text-center" }, {
                         default: _withCtx(() => [
-                          _cache[38] || (_cache[38] = _createElementVNode("div", { class: "text-caption text-grey" }, "空目录", -1)),
-                          _createElementVNode("div", _hoisted_20, _toDisplayString(_unref(fmtInt)(emptyDirs.value.length)), 1)
+                          _cache[39] || (_cache[39] = _createElementVNode("div", { class: "text-caption text-grey" }, "空目录", -1)),
+                          _createElementVNode("div", _hoisted_21, _toDisplayString(_unref(fmtInt)(emptyDirs.value.length)), 1)
                         ]),
                         _: 1
                       })
@@ -969,12 +1005,12 @@ return (_ctx, _cache) => {
               _createVNode(_component_v_card_title, { class: "text-subtitle-1 py-2 d-flex align-center ga-2" }, {
                 default: _withCtx(() => [
                   _createVNode(_component_v_icon, null, {
-                    default: _withCtx(() => [...(_cache[39] || (_cache[39] = [
+                    default: _withCtx(() => [...(_cache[40] || (_cache[40] = [
                       _createTextVNode("mdi-map-marker-path", -1)
                     ]))]),
                     _: 1
                   }),
-                  _cache[42] || (_cache[42] = _createTextVNode(" 磁盘路径映射校验 ", -1)),
+                  _cache[43] || (_cache[43] = _createTextVNode(" 磁盘路径映射校验 ", -1)),
                   _createVNode(_component_v_spacer),
                   _createVNode(_component_v_btn, {
                     density: "compact",
@@ -986,12 +1022,12 @@ return (_ctx, _cache) => {
                   }, {
                     default: _withCtx(() => [
                       _createVNode(_component_v_icon, { left: "" }, {
-                        default: _withCtx(() => [...(_cache[40] || (_cache[40] = [
+                        default: _withCtx(() => [...(_cache[41] || (_cache[41] = [
                           _createTextVNode("mdi-check-decagram", -1)
                         ]))]),
                         _: 1
                       }),
-                      _cache[41] || (_cache[41] = _createTextVNode("校验 ", -1))
+                      _cache[42] || (_cache[42] = _createTextVNode("校验 ", -1))
                     ]),
                     _: 1
                   }, 8, ["loading"])
@@ -1026,7 +1062,7 @@ return (_ctx, _cache) => {
                     : _createCommentVNode("", true),
                   (pathMapCheckResult.value)
                     ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [
-                        _createElementVNode("div", _hoisted_21, [
+                        _createElementVNode("div", _hoisted_22, [
                           _createVNode(_component_v_chip, {
                             size: "small",
                             color: pathMapCheckResult.value.ok ? 'success' : 'error',
@@ -1061,7 +1097,7 @@ return (_ctx, _cache) => {
                               }, {
                                 default: _withCtx(() => [
                                   _createVNode(_component_v_icon, { left: "" }, {
-                                    default: _withCtx(() => [...(_cache[43] || (_cache[43] = [
+                                    default: _withCtx(() => [...(_cache[44] || (_cache[44] = [
                                       _createTextVNode("mdi-check", -1)
                                     ]))]),
                                     _: 1
@@ -1124,7 +1160,7 @@ return (_ctx, _cache) => {
                               }))
                             : _createCommentVNode("", true),
                           _createVNode(_component_v_spacer),
-                          _createElementVNode("small", _hoisted_22, "校验源: " + _toDisplayString(pathMapCheckResult.value.source), 1)
+                          _createElementVNode("small", _hoisted_23, "校验源: " + _toDisplayString(pathMapCheckResult.value.source), 1)
                         ]),
                         (pathMapCheckResult.value.lines && pathMapCheckResult.value.lines.length)
                           ? (_openBlock(), _createBlock(_component_v_data_table, {
@@ -1142,10 +1178,10 @@ return (_ctx, _cache) => {
                               class: "elevation-0 mt-2"
                             }, {
                               "item.line_no": _withCtx(({ item }) => [
-                                _createElementVNode("span", _hoisted_23, _toDisplayString(item.line_no), 1)
+                                _createElementVNode("span", _hoisted_24, _toDisplayString(item.line_no), 1)
                               ]),
                               "item.raw": _withCtx(({ item }) => [
-                                _createElementVNode("code", _hoisted_24, _toDisplayString(item.raw), 1)
+                                _createElementVNode("code", _hoisted_25, _toDisplayString(item.raw), 1)
                               ]),
                               "item.remote": _withCtx(({ item }) => [
                                 _createElementVNode("code", {
@@ -1188,7 +1224,7 @@ return (_ctx, _cache) => {
                               ]),
                               _: 1
                             }, 8, ["items"]))
-                          : (_openBlock(), _createElementBlock("div", _hoisted_25, "没有可校验的行 (留空?)"))
+                          : (_openBlock(), _createElementBlock("div", _hoisted_26, "没有可校验的行 (留空?)"))
                       ], 64))
                     : _createCommentVNode("", true)
                 ]),
@@ -1203,7 +1239,7 @@ return (_ctx, _cache) => {
             variant: "tonal",
             class: "mb-2"
           }, {
-            default: _withCtx(() => [...(_cache[44] || (_cache[44] = [
+            default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
               _createTextVNode(" 仅对“扫描后不在任何做种种子内的文件”列为候选,删除需人工勾选确认;种子内文件绝不会被误判为可删除。 ", -1)
             ]))]),
             _: 1
@@ -1227,7 +1263,7 @@ return (_ctx, _cache) => {
                 _: 1
               }))
             : _createCommentVNode("", true),
-          _createElementVNode("div", _hoisted_26, [
+          _createElementVNode("div", _hoisted_27, [
             _createVNode(_component_v_checkbox, {
               label: "全选",
               "hide-details": "",
@@ -1236,7 +1272,7 @@ return (_ctx, _cache) => {
               "model-value": removables.value.length > 0 && selected.value.length === removables.value.length,
               "onUpdate:modelValue": toggleAll
             }, null, 8, ["indeterminate", "model-value"]),
-            _createElementVNode("small", _hoisted_27, "已选 " + _toDisplayString(selected.value.length) + " 项 / " + _toDisplayString(_unref(formatSize)(selectedSize())), 1),
+            _createElementVNode("small", _hoisted_28, "已选 " + _toDisplayString(selected.value.length) + " 项 / " + _toDisplayString(_unref(formatSize)(selectedSize())), 1),
             _createVNode(_component_v_spacer),
             _createVNode(_component_v_btn, {
               density: "compact",
@@ -1248,12 +1284,12 @@ return (_ctx, _cache) => {
             }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_icon, { left: "" }, {
-                  default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
+                  default: _withCtx(() => [...(_cache[46] || (_cache[46] = [
                     _createTextVNode("mdi-trash-can", -1)
                   ]))]),
                   _: 1
                 }),
-                _cache[46] || (_cache[46] = _createTextVNode("删除所选 ", -1))
+                _cache[47] || (_cache[47] = _createTextVNode("删除所选 ", -1))
               ]),
               _: 1
             }, 8, ["disabled"]),
@@ -1265,7 +1301,7 @@ return (_ctx, _cache) => {
               disabled: !removables.value.length,
               onClick: _cache[9] || (_cache[9] = $event => {selected.value = removables.value.map(x => x.rel); deleteSelected();})
             }, {
-              default: _withCtx(() => [...(_cache[47] || (_cache[47] = [
+              default: _withCtx(() => [...(_cache[48] || (_cache[48] = [
                 _createTextVNode(" 清空所有候选 ", -1)
               ]))]),
               _: 1
@@ -1280,7 +1316,7 @@ return (_ctx, _cache) => {
             }, {
               default: _withCtx(() => [
                 _createVNode(_component_v_icon, { left: "" }, {
-                  default: _withCtx(() => [...(_cache[48] || (_cache[48] = [
+                  default: _withCtx(() => [...(_cache[49] || (_cache[49] = [
                     _createTextVNode("mdi-folder-remove", -1)
                   ]))]),
                   _: 1
@@ -1334,6 +1370,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-f74d0413"]]);
+const AppPage = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-2110a6a7"]]);
 
 export { AppPage as default };
