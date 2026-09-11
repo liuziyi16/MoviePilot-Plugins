@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.7"
+    plugin_version = "1.2.9"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -1028,28 +1028,25 @@ class SeedStats(_PluginBase):
             if not remote_root:
                 warn.append(f"{getattr(t,'name','?')}:无保存路径,跳过")
                 return
-            anchor = self._map_remote_to_local(remote_root)
-            if not anchor:
+            container_path, nas_path = self._resolve_local_path(remote_root)
+            if not nas_path:
                 warn.append(f"{getattr(t,'name','?')}:路径 {remote_root} "
-                            f"未在磁盘映射中命中,不参与本地对比")
+                            f"未在 path_map 中命中, 跳过")
                 return
-            if self._in_exclude(anchor):
+            if self._in_exclude(nas_path):
                 return
-            # 始终记录到 roots(去重),让 _compare_local_trees 决定怎么处理
-            if anchor not in roots_seen:
-                roots.append(anchor)
-                roots_seen.add(anchor)
-            # 仅当容器内实际可见时才收集 covered (否则 collected 的路径
-            # 跟 os.walk 出来的不在同一个 inode 命名空间, 比不出结果)
-            if os.path.isdir(anchor):
-                covered = anchors_visible.setdefault(anchor, set())
+            # roots 用 nas_path (跨容器可标识的稳定路径, 也是 deployment
+            # 检测的 key)
+            if nas_path not in roots_seen:
+                roots.append(nas_path)
+                roots_seen.add(nas_path)
+            # covered 必须跟 os.walk 同空间 -> 用 container_path (容器内可见)
+            if container_path and os.path.isdir(container_path):
+                covered = anchors_visible.setdefault(nas_path, set())
                 for local_file in self._fetch_streams_local(client, d_type, t):
                     if local_file:
                         covered.add(local_file)
-            else:
-                # 容器内看不到, 不报错 —— 常见于 NAS 路径,
-                # _compare_local_trees 会用 remote 原值再试一次
-                pass
+            # 容器内看不到 -> covered 收不到, deployment_warnings 会提示挂载
         except Exception as e:
             warn.append(f"收集种子覆盖文件出错:{e}")
 
@@ -1107,43 +1104,71 @@ class SeedStats(_PluginBase):
 
 
     def _map_remote_to_local(self, remote: str) -> Optional[str]:
-        """按 path_map:用配置里最长的远程前缀命中的替换;返回本地绝对路径。
+        """[v1.2.9 兼容保留] 返回容器内可见路径 (给 _fetch_streams_local 用)."""
+        return self._resolve_local_path(remote)[0]
 
-        找不到容器内可用的本地前缀时, 不强行返回 None:
-          - 配置的 local 容器内可见 -> mapped
-          - 配置的 local 容器内不可见但 mountinfo 源端可见 -> mapped
-            (bind-mount 部署)
-          - 都不在 -> 返回 remote 原值, 让上层 _compare_local_trees 用
-            os.walk 直接打;打不开时再报错。这样 NAS 上的真实路径即使
-            没显式挂载 (btrfs 同子卷 mountinfo 源端是块设备) 也能尝试访问。
+    def _resolve_local_path(self, remote: str) -> Tuple[Optional[str], Optional[str]]:
+        """[v1.2.9] 把 remote (qB 容器视角) 换算成 (container_path, nas_path):
+          - container_path: MP 容器内可见的本地绝对路径; 找不到则 None
+            (用于 covered 收集 + os.walk, 必须同空间)
+          - nas_path: NAS 真实路径 (path_map 直接结果), 容器内看不到但宿主存在
+        换算链: qB 视角 -> path_map[lp] = NAS 路径 ->
+          NAS 路径反查 MP 容器挂载表 -> 容器内挂载点
         """
         if not remote:
-            return None
+            return None, None
         norm = remote.replace("\\", "/").rstrip("/")
         best_len = -1
-        best_local = None
+        best_nas = None
         for rp, lp in self._path_map.items():
             rkey = rp.replace("\\", "/").rstrip("/")
             if not rkey:
                 continue
             if norm == rkey:
-                mapped = lp.replace("\\", "/").rstrip("/") or norm
-                if self._local_path_usable(mapped):
-                    return mapped
-                if self._is_host_path(mapped):
-                    return mapped
-                return norm  # 退化到原值
+                nas = lp.replace("\\", "/").rstrip("/") or norm
+                container = self._map_nas_to_container(nas)
+                return container, nas
             if norm.startswith(rkey + "/") and len(rkey) > best_len:
                 best_len = len(rkey)
-                best_local = lp.replace("\\", "/").rstrip("/")
-        if best_local:
-            suffix = norm[best_len:]          # 含前导 '/'
-            mapped = (best_local + suffix) or norm
-            if self._local_path_usable(mapped):
-                return mapped
-            if self._is_host_path(best_local):
-                return mapped
-            return norm  # 退化到原值
+                best_nas = lp.replace("\\", "/").rstrip("/")
+        if best_nas:
+            suffix = norm[best_len:]
+            nas = (best_nas + suffix) or norm
+            container = self._map_nas_to_container(nas)
+            return container, nas
+        return None, None
+
+    def _map_nas_to_container(self, nas_path: str) -> Optional[str]:
+        """[v1.2.9] 把 NAS 路径换算成 MP 容器内可见路径.
+
+        算法: 读 /proc/self/mountinfo, 对每条 bind mount (source -> mount_point),
+        如果 nas_path 等于 source 或以 source + "/" 开头, 替换为
+        mount_point + 余下后缀.
+
+        例: 宿主 /volume1/docker bind 到容器 /docker
+          输入 /volume1/docker/12hermes/data -> /docker/12hermes/data
+        """
+        if not nas_path:
+            return None
+        norm = self._normalize_for_match(nas_path)
+        if not norm:
+            return None
+        if not hasattr(self, "_mounts_cache"):
+            mounts = self._read_mountinfo()
+            # 按 source 长度降序, 优先匹配最长前缀 (子目录挂载优先于父目录)
+            self._mounts_cache = sorted(
+                [(self._normalize_for_match(src), mp)
+                 for src, mp in mounts
+                 if src and mp and src != "none" and not src.startswith("/dev/")],
+                key=lambda x: -len(x[0]))
+        for src_norm, mp in self._mounts_cache:
+            if not src_norm:
+                continue
+            if norm == src_norm:
+                return os.path.normpath(mp)
+            if norm.startswith(src_norm + "/"):
+                suf = norm[len(src_norm):]
+                return os.path.normpath(mp.rstrip("/") + suf)
         return None
 
     def _local_path_usable(self, p: str) -> bool:
@@ -1224,23 +1249,11 @@ class SeedStats(_PluginBase):
         # remote 原值没有 covered, 这些 root 会全列候选 (即"看到的全部
         # 不是种子的文件") —— 这是保守做法, 不会误删种子内文件
         def _safe_walk_base(root: str) -> Optional[str]:
-            """返回可用于 os.walk 的真实可访问目录, 失败 None."""
-            if os.path.isdir(root):
-                return os.path.normpath(root)
-            # fallback: 把容器内的 path_map 还原回 remote 原值
-            # 这里通过反向遍历 path_map 找含 root 的 remote 键 (近似)
-            remote_orig = None
-            for rp, lp in self._path_map.items():
-                rp_n = rp.replace("\\", "/").rstrip("/")
-                lp_n = lp.replace("\\", "/").rstrip("/")
-                if lp_n and (root == lp_n or root.startswith(lp_n + "/")):
-                    suf = root[len(lp_n):]
-                    remote_orig = rp_n + suf
-                    break
-            if remote_orig and os.path.isdir(remote_orig):
-                warnings_extra.append(
-                    f"{root}:容器内不可见, 用 remote 原值 {remote_orig} walk")
-                return os.path.normpath(remote_orig)
+            """[v1.2.9] root 是 nas_path; 查容器挂载表反查容器内挂载点.
+            没有直接 None (deployment_warnings 会提示挂载问题)"""
+            container = self._map_nas_to_container(root)
+            if container and os.path.isdir(container):
+                return os.path.normpath(container)
             return None
 
         for root in roots:
