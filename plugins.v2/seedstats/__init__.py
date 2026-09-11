@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.2"
+    plugin_version = "1.2.3"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -467,9 +467,20 @@ class SeedStats(_PluginBase):
         for line in SeedStats._parse_list(raw):
             if ":" in line:
                 site, _, domains = line.partition(":")
-                result[site.strip()] = {
-                    d.strip().lower() for d in sep_re.split(domains) if d.strip()
-                }
+                acc: set = set()
+                for d in sep_re.split(domains):
+                    d = d.strip().lower()
+                    if not d:
+                        continue
+                    acc.add(d)
+                    try:
+                        sld = StringUtils.get_url_sld(d if "//" in d else f"https://{d}")
+                    except Exception:
+                        sld = ""
+                    if sld:
+                        acc.add(str(sld).strip().lower())
+                if acc:
+                    result[site.strip()] = acc
         return result
 
     # ============ 下载器访问引擎(Step3) ============
@@ -506,9 +517,12 @@ class SeedStats(_PluginBase):
         返回 {域名.lower(): 站点名}。系统站点在访问失败时静默降级(报错不影响整体)。"""
         found = {}
         # 1) 用户自定义站点域名映射
+        user_keys: set = set()
         for site_name, domains in self._site_domains.items():
             for d in domains:
-                found[str(d).strip().lower()] = site_name
+                k = str(d).strip().lower()
+                found[k] = site_name
+                user_keys.add(k)
         # 2) 合并 MoviePilot 系统环境已激活的站点域名(通过 DB 直接读,无副作用)
         try:
             from app.db.site_oper import SiteOper
@@ -519,7 +533,9 @@ class SeedStats(_PluginBase):
                 if dom and name:
                     if dom.startswith("http"):
                         dom = StringUtils.get_url_sld(dom)
-                    found.setdefault(str(dom).strip().lower(), name)
+                    k = str(dom).strip().lower()
+                    if k not in user_keys:
+                        found.setdefault(k, name)
         except Exception as e:
             logger.debug(f"读取系统站点域名失败(将仅依赖用户配置):{e}")
         return found
@@ -531,7 +547,16 @@ class SeedStats(_PluginBase):
         key = torrent_sld.lower()
         if key in domain_map:
             return domain_map[key]
-        # 无严格匹配则尝试泛匹配(主域即站点标识的常见国产站)
+        best = ""
+        best_len = -1
+        for dom, name in domain_map.items():
+            if not dom:
+                continue
+            if key == dom or key.endswith("." + dom) or dom.endswith("." + key):
+                if len(dom) > best_len:
+                    best, best_len = name, len(dom)
+        if best:
+            return best
         return "未识别"
 
     def _downloaders_name_type(self, info_map: Dict[str, Any]) -> None:
@@ -1302,7 +1327,7 @@ class SeedStats(_PluginBase):
                             sld = self._tracker_sld(t, d_type)
                             if not sld:
                                 continue
-                            if domain_map.get(sld.lower()) == target_name:
+                            if self._site_name_for_torrent(sld.lower(), domain_map) == target_name:
                                 tracker_domains.add(sld.lower())
                         except Exception:
                             continue
