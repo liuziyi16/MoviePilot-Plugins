@@ -132,7 +132,53 @@
         </v-card-title>
         <v-card-text>
           <v-combobox v-model="ruleDlg.site" :items="siteOptions" :loading="loadingSites" label="站点名称"
-            variant="outlined" hint="可从站点库下拉选择, 也可手动输入别名" persistent-hint />
+            variant="outlined" hint="可从站点库下拉选择, 也可手动输入别名" persistent-hint
+            @update:model-value="onSiteChange" />
+
+          <!-- 域名补充专属: MP 收录 + 下载器 tracker 域名建议 -->
+          <template v-if="ruleDlg.type === 'domain'">
+            <div class="d-flex align-center mt-3 mb-1">
+              <v-icon size="small" class="mr-1">mdi-cloud-cog-outline</v-icon>
+              <span class="text-caption text-medium-emphasis">已知域名(点击勾选/取消, 自动填入下方域名列表)</span>
+            </div>
+
+            <!-- MP 收录域名 -->
+            <div class="mb-1 text-caption" v-if="suggestDomains.mp_domains.length">
+              <v-icon size="x-small" class="mr-1">mdi-database-check-outline</v-icon>
+              MP 站点库收录:
+              <v-chip v-for="d in suggestDomains.mp_domains" :key="'mp-' + d"
+                size="x-small" class="ml-1" :color="isDomainSelected(d) ? 'primary' : ''"
+                :variant="isDomainSelected(d) ? 'flat' : 'outlined'"
+                @click="toggleDomain(d)">
+                {{ d }}
+              </v-chip>
+            </div>
+
+            <!-- 下载器 tracker 域名 -->
+            <div class="mb-1 text-caption" v-if="suggestDomains.tracker_domains.length">
+              <v-icon size="x-small" class="mr-1">mdi-download-network-outline</v-icon>
+              下载器当前 tracker:
+              <v-chip v-for="d in suggestDomains.tracker_domains" :key="'tk-' + d"
+                size="x-small" class="ml-1" :color="isDomainSelected(d) ? 'success' : ''"
+                :variant="isDomainSelected(d) ? 'flat' : 'outlined'"
+                @click="toggleDomain(d)">
+                {{ d }}
+              </v-chip>
+            </div>
+
+            <!-- 加载状态 / 空状态 -->
+            <div v-if="loadingSuggestions" class="text-caption text-grey">
+              <v-progress-circular indeterminate size="x-small" width="1" class="mr-1" />
+              加载建议域名...
+            </div>
+            <div v-else-if="ruleDlg.site && !suggestDomains.mp_domains.length && !suggestDomains.tracker_domains.length"
+                 class="text-caption text-medium-emphasis">
+              该站点暂无 MP 收录域名, 也未在下载器种子里找到对应 tracker
+            </div>
+
+            <v-divider class="my-2" />
+            <div class="text-caption text-medium-emphasis mb-1">手动输入域名(可补充 / 自定义)</div>
+          </template>
           <div v-for="(v, i) in ruleDlg.values" :key="'val' + i" class="d-flex align-center mt-2">
             <v-text-field v-model="ruleDlg.values[i]" variant="outlined" density="comfortable" hide-details
               :label="i === 0 ? (ruleDlg.type === 'suffix' ? '官组后缀(不区分大小写)' : '补充域名') : ''"
@@ -207,6 +253,13 @@ const suffixRules = ref([])
 const domainRules = ref([])
 const siteOptions = ref([])
 const loadingSites = ref(false)
+// MP 站点全量缓存 (含 domain 字段) - 弹框里查 mp 域名
+const sitesFull = ref([])
+// 站点域名建议: { mp_domains: [], tracker_domains: [], site_name: '' }
+const suggestDomains = ref({ mp_domains: [], tracker_domains: [], site_name: '' })
+const loadingSuggestions = ref(false)
+// 弹框打开状态里监听的站点名, 避免 onChange 抖动
+const suggestLoadingSite = ref('')
 const ruleDlg = reactive({ show: false, type: 'suffix', site: '', values: [''], editingIndex: null })
 
 // '站点名:值1,值2' 多行文本 -> [{site, values[]}]（按站点合并, 兼容中文逗号与竖线分隔）
@@ -246,10 +299,73 @@ async function loadSites() {
     const res = await props.api.get('site/')
     const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : [])
     siteOptions.value = list.map(x => x?.name).filter(Boolean)
+    // 含 domain 字段的全量, 用于按 name 查 mp 收录域名 (避免再调一次 /sites)
+    sitesFull.value = list.filter(x => x?.name)
   } catch (e) {
     console.error('获取站点列表失败:', e)
   } finally {
     loadingSites.value = false
+  }
+}
+
+// 加载某站点的域名建议 (MP 收录 + 下载器 tracker)
+async function loadSuggestions(siteName) {
+  const name = String(siteName || '').trim()
+  if (!name) {
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: '' }
+    return
+  }
+  suggestLoadingSite.value = name
+  loadingSuggestions.value = true
+  try {
+    const res = await props.api.get(`plugin/SeedStats/site_domains_suggest?site_name=${encodeURIComponent(name)}`)
+    const data = res?.data || res
+    if (String(data?.site_name || '') === name || !data?.site_name) {
+      suggestDomains.value = {
+        site_name: name,
+        mp_domains: Array.isArray(data?.mp_domains) ? data.mp_domains : [],
+        tracker_domains: Array.isArray(data?.tracker_domains) ? data.tracker_domains : [],
+      }
+    }
+  } catch (e) {
+    console.error('获取站点域名建议失败:', e)
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: name }
+  } finally {
+    loadingSuggestions.value = false
+    suggestLoadingSite.value = ''
+  }
+}
+
+// 弹框里站点变化时: 重新加载建议 + 重置 value 列表 (但保留自定义的)
+function onSiteChange(newSite) {
+  ruleDlg.site = newSite || ''
+  if (ruleDlg.type === 'domain') {
+    loadSuggestions(ruleDlg.site)
+  }
+}
+
+// 域名是否在弹框 value 列表里 (小写比较)
+function isDomainSelected(d) {
+  const lower = String(d || '').trim().toLowerCase()
+  return ruleDlg.values.some(v => String(v || '').trim().toLowerCase() === lower)
+}
+
+// 点击 chip 切换该域名是否在 value 列表
+function toggleDomain(d) {
+  const lower = String(d || '').trim().toLowerCase()
+  if (!lower) return
+  const idx = ruleDlg.values.findIndex(v => String(v || '').trim().toLowerCase() === lower)
+  if (idx >= 0) {
+    ruleDlg.values.splice(idx, 1)
+    // 如果删空, 自动加一项空输入框便于用户继续手填
+    if (!ruleDlg.values.length) ruleDlg.values = ['']
+  } else {
+    // 添加: 如果当前只有 [''] 空字符串, 替换; 否则追加
+    if (ruleDlg.values.length === 1 && !String(ruleDlg.values[0] || '').trim()) {
+      ruleDlg.values = [d]
+    } else {
+      ruleDlg.values = [...ruleDlg.values, d]
+    }
   }
 }
 
@@ -264,6 +380,12 @@ function openRuleDlg(type, index = null) {
   } else {
     ruleDlg.site = ''
     ruleDlg.values = ['']
+  }
+  // 域名补充弹框打开后, 异步加载该站点的 mp + tracker 域名建议
+  if (type === 'domain' && ruleDlg.site) {
+    loadSuggestions(ruleDlg.site)
+  } else {
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: '' }
   }
   ruleDlg.show = true
 }

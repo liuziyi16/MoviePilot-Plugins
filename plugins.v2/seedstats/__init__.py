@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.1"
+    plugin_version = "1.2.2"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -165,6 +165,12 @@ class SeedStats(_PluginBase):
             {"path": "/validate_path_map", "endpoint": self.api_validate_path_map,
              "methods": ["POST"], "auth": "bear",
              "summary": "逐行校验 path_map 远程/本地前缀是否存在(body:{raw?})"},
+            {"path": "/sites", "endpoint": self.api_sites, "methods": ["GET"],
+             "auth": "bear",
+             "summary": "列出 MP 系统已激活站点 + 用户已配域名(供 site_domains 编辑器)"},
+            {"path": "/site_domains_suggest", "endpoint": self.api_site_domains_suggest,
+             "methods": ["GET"], "auth": "bear",
+             "summary": "某站点的域名建议:MP 收录域名 + 当前下载器 tracker 域名"},
         ]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -1219,6 +1225,124 @@ class SeedStats(_PluginBase):
         names = [n for n in names if n]
         return JSONResponse({"ok": True, "services": names,
                              "hint": "下载器名需与「下载器」模块中命名一致"})
+
+    # ===== 站点域名编辑器辅助端点 (用于 site_domains VTextarea 升级版) =====
+
+    def api_sites(self) -> JSONResponse:
+        """列出 MP 系统已激活站点(用于 site_domains 编辑器 VSelect 数据源)。
+
+        返回 {ok, sites: [{id, name, domain, domains}], user_domains: {site: [domain]}}
+        """
+        sites: List[dict] = []
+        try:
+            from app.db.site_oper import SiteOper
+            oper = SiteOper()
+            for row in oper.list_active():
+                name = getattr(row, "name", "") or ""
+                dom = getattr(row, "domain", None) or ""
+                cleaned = StringUtils.get_url_sld(dom) if dom else ""
+                sites.append({
+                    "id": getattr(row, "id", None),
+                    "name": name,
+                    "domain": cleaned,
+                    "domains": [cleaned] if cleaned else [],
+                })
+        except Exception as e:
+            logger.warning(f"读取系统站点失败:{e}")
+            return JSONResponse({"ok": False, "err": str(e), "sites": []})
+
+        user_domains = {sn: sorted(ds) for sn, ds in (self._site_domains or {}).items()}
+        return JSONResponse({"ok": True, "sites": sites, "user_domains": user_domains})
+
+    def api_site_domains_suggest(self, site_id: Optional[int] = None,
+                                 site_name: Optional[str] = None) -> JSONResponse:
+        """某站点的域名建议: MP 收录 + 当前下载器 tracker 实际出现的域名。
+
+        二选一参数 (site_name 优先匹配 MP 系统名)。
+        返回 {ok, site_name, mp_domains, tracker_domains}
+        """
+        target_name = ""
+        mp_domains: List[str] = []
+        try:
+            from app.db.site_oper import SiteOper
+            oper = SiteOper()
+            for row in oper.list_active():
+                rid = getattr(row, "id", None)
+                rname = getattr(row, "name", "") or ""
+                if (site_id is not None and rid == site_id) or (site_name and rname == site_name):
+                    target_name = rname
+                    dom = getattr(row, "domain", None) or ""
+                    if dom:
+                        cleaned = StringUtils.get_url_sld(dom)
+                        if cleaned:
+                            mp_domains.append(cleaned)
+                    break
+        except Exception as e:
+            logger.warning(f"读站点列表失败:{e}")
+
+        tracker_domains: set = set()
+        if target_name:
+            try:
+                helper = DownloaderHelper()
+                services = helper.get_services() or {}
+                domain_map = self.get_indexer_site_map()
+                for _name, svc in services.items():
+                    client = getattr(svc, "instance", None)
+                    if not client:
+                        continue
+                    try:
+                        torrents, err = client.get_torrents()
+                    except Exception:
+                        continue
+                    if err or not torrents:
+                        continue
+                    d_type = getattr(getattr(svc, "config", None), "type", "") or ""
+                    for t in torrents or []:
+                        try:
+                            sld = self._tracker_sld(t, d_type)
+                            if not sld:
+                                continue
+                            if domain_map.get(sld.lower()) == target_name:
+                                tracker_domains.add(sld.lower())
+                        except Exception:
+                            continue
+            except Exception as e:
+                logger.warning(f"读下载器 tracker 失败:{e}")
+
+        return JSONResponse({
+            "ok": True,
+            "site_name": target_name,
+            "mp_domains": mp_domains,
+            "tracker_domains": sorted(tracker_domains),
+        })
+
+    @staticmethod
+    def _tracker_sld(torrent: Any, d_type: str) -> str:
+        """从单个 torrent 提取 tracker 主域(sld)。qB/TR 通用。"""
+        tracker = ""
+        try:
+            d = (d_type or "").lower()
+            if "qbittorrent" in d or "qb" == d.strip():
+                tracker = (getattr(torrent, "tracker", None) or
+                           getattr(torrent, "tracker_url", None) or "")
+            elif "transmission" in d or "tr" == d.strip():
+                trackers = (getattr(torrent, "trackers", None) or
+                            getattr(torrent, "tracker_urls", None) or [])
+                if trackers and isinstance(trackers, (list, tuple)):
+                    for tk in trackers:
+                        if isinstance(tk, dict):
+                            tracker = tk.get("announce") or tk.get("url") or ""
+                        elif isinstance(tk, str):
+                            tracker = tk
+                        if tracker:
+                            break
+            else:
+                tracker = (getattr(torrent, "tracker", None) or "")
+        except Exception:
+            return ""
+        if not tracker:
+            return ""
+        return StringUtils.get_url_sld(tracker)
 
     # ---------- path_map 校验 ----------
 

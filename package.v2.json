@@ -3,7 +3,7 @@
     "name": "做种统计",
     "description": "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。",
     "labels": "做种,统计,整理",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "icon": "seedstats.png",
     "author": "liuziyi16",
     "level": 1,
@@ -22,7 +22,8 @@
       "v1.1.0": "新增磁盘路径映射校验: 本地清理 Tab 顶部加「校验」按钮, 后端 /validate_path_map 端点逐行检查远程/本地前缀是否存在, 结果表格按行展示状态(OK/远程缺失/本地缺失/两端均缺/格式错)。校验源支持两种: body.raw(用户在面板里粘贴的当前文本) + 留空回退到 self._path_map(已保存的插件配置)。",
       "v1.1.1": "hotfix: 恢复 get_render_mode 为 @classmethod + dist/v{plugin_version}/assets 路径版本化。v1.1.0 误把 v1.0.4 的 classmethod 改回 @staticmethod + \"dist/assets\", 导致 MP 容器内找不到 dist/assets/remoteEntry.js (实际是 dist/v1.1.0/assets/...)，弹框闪退。本 patch 修复路径拼接并同步 plugin_version 1.1.0 → 1.1.1。",
       "v1.2.0": "feat: 非官组种子独立区块; site_suffixes 支持中英文分号; 查看数据页加回到设置/关闭按钮",
-      "v1.2.1": "fix: 补入 import re, 修复 init_plugin 加载时 nameError(re 未定义)。上版本未 import re 导致 form/page 端点返回 404。"
+      "v1.2.1": "fix: 补入 import re, 修复 init_plugin 加载时 nameError(re 未定义)。上版本未 import re 导致 form/page 端点返回 404。",
+      "v1.2.2": "feat: 站点域名补充弹框加入建议面板, 可选 MP 站点库收录 + 下载器当前 tracker 域名"
     }
   },
   "ShortCutModified": {

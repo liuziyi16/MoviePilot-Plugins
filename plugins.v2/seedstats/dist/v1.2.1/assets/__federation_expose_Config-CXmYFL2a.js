@@ -31,6 +31,23 @@ const _hoisted_12 = {
   key: 1,
   class: "text-body-2 text-medium-emphasis pa-3"
 };
+const _hoisted_13 = { class: "d-flex align-center mt-3 mb-1" };
+const _hoisted_14 = {
+  key: 0,
+  class: "mb-1 text-caption"
+};
+const _hoisted_15 = {
+  key: 1,
+  class: "mb-1 text-caption"
+};
+const _hoisted_16 = {
+  key: 2,
+  class: "text-caption text-grey"
+};
+const _hoisted_17 = {
+  key: 3,
+  class: "text-caption text-medium-emphasis"
+};
 
 const {ref,reactive,onMounted} = await importShared('vue');
 
@@ -74,6 +91,13 @@ const suffixRules = ref([]);
 const domainRules = ref([]);
 const siteOptions = ref([]);
 const loadingSites = ref(false);
+// MP 站点全量缓存 (含 domain 字段) - 弹框里查 mp 域名
+const sitesFull = ref([]);
+// 站点域名建议: { mp_domains: [], tracker_domains: [], site_name: '' }
+const suggestDomains = ref({ mp_domains: [], tracker_domains: [], site_name: '' });
+const loadingSuggestions = ref(false);
+// 弹框打开状态里监听的站点名, 避免 onChange 抖动
+const suggestLoadingSite = ref('');
 const ruleDlg = reactive({ show: false, type: 'suffix', site: '', values: [''], editingIndex: null });
 
 // '站点名:值1,值2' 多行文本 -> [{site, values[]}]（按站点合并, 兼容中文逗号与竖线分隔）
@@ -113,10 +137,73 @@ async function loadSites() {
     const res = await props.api.get('site/');
     const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
     siteOptions.value = list.map(x => x?.name).filter(Boolean);
+    // 含 domain 字段的全量, 用于按 name 查 mp 收录域名 (避免再调一次 /sites)
+    sitesFull.value = list.filter(x => x?.name);
   } catch (e) {
     console.error('获取站点列表失败:', e);
   } finally {
     loadingSites.value = false;
+  }
+}
+
+// 加载某站点的域名建议 (MP 收录 + 下载器 tracker)
+async function loadSuggestions(siteName) {
+  const name = String(siteName || '').trim();
+  if (!name) {
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: '' };
+    return
+  }
+  suggestLoadingSite.value = name;
+  loadingSuggestions.value = true;
+  try {
+    const res = await props.api.get(`plugin/SeedStats/site_domains_suggest?site_name=${encodeURIComponent(name)}`);
+    const data = res?.data || res;
+    if (String(data?.site_name || '') === name || !data?.site_name) {
+      suggestDomains.value = {
+        site_name: name,
+        mp_domains: Array.isArray(data?.mp_domains) ? data.mp_domains : [],
+        tracker_domains: Array.isArray(data?.tracker_domains) ? data.tracker_domains : [],
+      };
+    }
+  } catch (e) {
+    console.error('获取站点域名建议失败:', e);
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: name };
+  } finally {
+    loadingSuggestions.value = false;
+    suggestLoadingSite.value = '';
+  }
+}
+
+// 弹框里站点变化时: 重新加载建议 + 重置 value 列表 (但保留自定义的)
+function onSiteChange(newSite) {
+  ruleDlg.site = newSite || '';
+  if (ruleDlg.type === 'domain') {
+    loadSuggestions(ruleDlg.site);
+  }
+}
+
+// 域名是否在弹框 value 列表里 (小写比较)
+function isDomainSelected(d) {
+  const lower = String(d || '').trim().toLowerCase();
+  return ruleDlg.values.some(v => String(v || '').trim().toLowerCase() === lower)
+}
+
+// 点击 chip 切换该域名是否在 value 列表
+function toggleDomain(d) {
+  const lower = String(d || '').trim().toLowerCase();
+  if (!lower) return
+  const idx = ruleDlg.values.findIndex(v => String(v || '').trim().toLowerCase() === lower);
+  if (idx >= 0) {
+    ruleDlg.values.splice(idx, 1);
+    // 如果删空, 自动加一项空输入框便于用户继续手填
+    if (!ruleDlg.values.length) ruleDlg.values = [''];
+  } else {
+    // 添加: 如果当前只有 [''] 空字符串, 替换; 否则追加
+    if (ruleDlg.values.length === 1 && !String(ruleDlg.values[0] || '').trim()) {
+      ruleDlg.values = [d];
+    } else {
+      ruleDlg.values = [...ruleDlg.values, d];
+    }
   }
 }
 
@@ -131,6 +218,12 @@ function openRuleDlg(type, index = null) {
   } else {
     ruleDlg.site = '';
     ruleDlg.values = [''];
+  }
+  // 域名补充弹框打开后, 异步加载该站点的 mp + tracker 域名建议
+  if (type === 'domain' && ruleDlg.site) {
+    loadSuggestions(ruleDlg.site);
+  } else {
+    suggestDomains.value = { mp_domains: [], tracker_domains: [], site_name: '' };
   }
   ruleDlg.show = true;
 }
@@ -220,6 +313,9 @@ return (_ctx, _cache) => {
   const _component_v_snackbar = _resolveComponent("v-snackbar");
   const _component_v_card_title = _resolveComponent("v-card-title");
   const _component_v_combobox = _resolveComponent("v-combobox");
+  const _component_v_chip = _resolveComponent("v-chip");
+  const _component_v_progress_circular = _resolveComponent("v-progress-circular");
+  const _component_v_divider = _resolveComponent("v-divider");
   const _component_v_text_field = _resolveComponent("v-text-field");
   const _component_v_card_text = _resolveComponent("v-card-text");
   const _component_v_card_actions = _resolveComponent("v-card-actions");
@@ -271,7 +367,7 @@ return (_ctx, _cache) => {
           _: 1
         }))
       : _createCommentVNode("", true),
-    _cache[39] || (_cache[39] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-2 mb-2" }, "基本设置", -1)),
+    _cache[47] || (_cache[47] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-2 mb-2" }, "基本设置", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -330,7 +426,7 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _cache[40] || (_cache[40] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "调度周期 (5段cron, 宿主时区)", -1)),
+    _cache[48] || (_cache[48] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "调度周期 (5段cron, 宿主时区)", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -370,7 +466,7 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _cache[41] || (_cache[41] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "下载器与站点", -1)),
+    _cache[49] || (_cache[49] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "下载器与站点", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, { cols: "12" }, {
@@ -610,7 +706,7 @@ return (_ctx, _cache) => {
       ]),
       _: 1
     }),
-    _cache[42] || (_cache[42] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "本地对比路径", -1)),
+    _cache[50] || (_cache[50] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-4 mb-2" }, "本地对比路径", -1)),
     _createVNode(_component_v_row, { dense: "" }, {
       default: _withCtx(() => [
         _createVNode(_component_v_col, {
@@ -679,7 +775,10 @@ return (_ctx, _cache) => {
               default: _withCtx(() => [
                 _createVNode(_component_v_combobox, {
                   modelValue: ruleDlg.site,
-                  "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((ruleDlg.site) = $event)),
+                  "onUpdate:modelValue": [
+                    _cache[13] || (_cache[13] = $event => ((ruleDlg.site) = $event)),
+                    onSiteChange
+                  ],
                   items: siteOptions.value,
                   loading: loadingSites.value,
                   label: "站点名称",
@@ -687,6 +786,95 @@ return (_ctx, _cache) => {
                   hint: "可从站点库下拉选择, 也可手动输入别名",
                   "persistent-hint": ""
                 }, null, 8, ["modelValue", "items", "loading"]),
+                (ruleDlg.type === 'domain')
+                  ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
+                      _createElementVNode("div", _hoisted_13, [
+                        _createVNode(_component_v_icon, {
+                          size: "small",
+                          class: "mr-1"
+                        }, {
+                          default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
+                            _createTextVNode("mdi-cloud-cog-outline", -1)
+                          ]))]),
+                          _: 1
+                        }),
+                        _cache[34] || (_cache[34] = _createElementVNode("span", { class: "text-caption text-medium-emphasis" }, "已知域名(点击勾选/取消, 自动填入下方域名列表)", -1))
+                      ]),
+                      (suggestDomains.value.mp_domains.length)
+                        ? (_openBlock(), _createElementBlock("div", _hoisted_14, [
+                            _createVNode(_component_v_icon, {
+                              size: "x-small",
+                              class: "mr-1"
+                            }, {
+                              default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
+                                _createTextVNode("mdi-database-check-outline", -1)
+                              ]))]),
+                              _: 1
+                            }),
+                            _cache[36] || (_cache[36] = _createTextVNode(" MP 站点库收录: ", -1)),
+                            (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(suggestDomains.value.mp_domains, (d) => {
+                              return (_openBlock(), _createBlock(_component_v_chip, {
+                                key: 'mp-' + d,
+                                size: "x-small",
+                                class: "ml-1",
+                                color: isDomainSelected(d) ? 'primary' : '',
+                                variant: isDomainSelected(d) ? 'flat' : 'outlined',
+                                onClick: $event => (toggleDomain(d))
+                              }, {
+                                default: _withCtx(() => [
+                                  _createTextVNode(_toDisplayString(d), 1)
+                                ]),
+                                _: 2
+                              }, 1032, ["color", "variant", "onClick"]))
+                            }), 128))
+                          ]))
+                        : _createCommentVNode("", true),
+                      (suggestDomains.value.tracker_domains.length)
+                        ? (_openBlock(), _createElementBlock("div", _hoisted_15, [
+                            _createVNode(_component_v_icon, {
+                              size: "x-small",
+                              class: "mr-1"
+                            }, {
+                              default: _withCtx(() => [...(_cache[37] || (_cache[37] = [
+                                _createTextVNode("mdi-download-network-outline", -1)
+                              ]))]),
+                              _: 1
+                            }),
+                            _cache[38] || (_cache[38] = _createTextVNode(" 下载器当前 tracker: ", -1)),
+                            (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(suggestDomains.value.tracker_domains, (d) => {
+                              return (_openBlock(), _createBlock(_component_v_chip, {
+                                key: 'tk-' + d,
+                                size: "x-small",
+                                class: "ml-1",
+                                color: isDomainSelected(d) ? 'success' : '',
+                                variant: isDomainSelected(d) ? 'flat' : 'outlined',
+                                onClick: $event => (toggleDomain(d))
+                              }, {
+                                default: _withCtx(() => [
+                                  _createTextVNode(_toDisplayString(d), 1)
+                                ]),
+                                _: 2
+                              }, 1032, ["color", "variant", "onClick"]))
+                            }), 128))
+                          ]))
+                        : _createCommentVNode("", true),
+                      (loadingSuggestions.value)
+                        ? (_openBlock(), _createElementBlock("div", _hoisted_16, [
+                            _createVNode(_component_v_progress_circular, {
+                              indeterminate: "",
+                              size: "x-small",
+                              width: "1",
+                              class: "mr-1"
+                            }),
+                            _cache[39] || (_cache[39] = _createTextVNode(" 加载建议域名... ", -1))
+                          ]))
+                        : (ruleDlg.site && !suggestDomains.value.mp_domains.length && !suggestDomains.value.tracker_domains.length)
+                          ? (_openBlock(), _createElementBlock("div", _hoisted_17, " 该站点暂无 MP 收录域名, 也未在下载器种子里找到对应 tracker "))
+                          : _createCommentVNode("", true),
+                      _createVNode(_component_v_divider, { class: "my-2" }),
+                      _cache[40] || (_cache[40] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mb-1" }, "手动输入域名(可补充 / 自定义)", -1))
+                    ], 64))
+                  : _createCommentVNode("", true),
                 (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(ruleDlg.values, (v, i) => {
                   return (_openBlock(), _createElementBlock("div", {
                     key: 'val' + i,
@@ -711,7 +899,7 @@ return (_ctx, _cache) => {
                     }, {
                       default: _withCtx(() => [
                         _createVNode(_component_v_icon, null, {
-                          default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
+                          default: _withCtx(() => [...(_cache[41] || (_cache[41] = [
                             _createTextVNode("mdi-plus", -1)
                           ]))]),
                           _: 1
@@ -720,7 +908,7 @@ return (_ctx, _cache) => {
                           activator: "parent",
                           location: "top"
                         }, {
-                          default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
+                          default: _withCtx(() => [...(_cache[42] || (_cache[42] = [
                             _createTextVNode("加一项", -1)
                           ]))]),
                           _: 1
@@ -739,7 +927,7 @@ return (_ctx, _cache) => {
                     }, {
                       default: _withCtx(() => [
                         _createVNode(_component_v_icon, null, {
-                          default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
+                          default: _withCtx(() => [...(_cache[43] || (_cache[43] = [
                             _createTextVNode("mdi-minus", -1)
                           ]))]),
                           _: 1
@@ -748,7 +936,7 @@ return (_ctx, _cache) => {
                           activator: "parent",
                           location: "top"
                         }, {
-                          default: _withCtx(() => [...(_cache[36] || (_cache[36] = [
+                          default: _withCtx(() => [...(_cache[44] || (_cache[44] = [
                             _createTextVNode("删除此项", -1)
                           ]))]),
                           _: 1
@@ -768,7 +956,7 @@ return (_ctx, _cache) => {
                   variant: "text",
                   onClick: _cache[14] || (_cache[14] = $event => (ruleDlg.show = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[37] || (_cache[37] = [
+                  default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
                     _createTextVNode("取消", -1)
                   ]))]),
                   _: 1
@@ -778,7 +966,7 @@ return (_ctx, _cache) => {
                   disabled: !ruleDlg.site || !ruleDlg.values.some(v => String(v || '').trim()),
                   onClick: confirmRule
                 }, {
-                  default: _withCtx(() => [...(_cache[38] || (_cache[38] = [
+                  default: _withCtx(() => [...(_cache[46] || (_cache[46] = [
                     _createTextVNode("确定", -1)
                   ]))]),
                   _: 1
@@ -797,6 +985,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-66a61e6c"]]);
+const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-70c9d20a"]]);
 
 export { Config as default };
