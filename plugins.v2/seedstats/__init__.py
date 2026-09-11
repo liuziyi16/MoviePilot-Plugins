@@ -51,7 +51,7 @@ class SeedStats(_PluginBase):
     plugin_name = "做种统计"
     plugin_desc = "统计下载器做种情况,并按站点/官组汇总;对比本地目录,定位可安全删除的冗余文件。"
     plugin_icon = "seedstats.png"
-    plugin_version = "1.2.6"
+    plugin_version = "1.2.7"
     plugin_author = "liuziyi16"
     author_url = "https://github.com/liuziyi16"
     plugin_config_prefix = "seedstats_"
@@ -941,7 +941,18 @@ class SeedStats(_PluginBase):
         """后台线程:以各启用下载器的『保存根目录』为锚点做差异扫描。
         种子内所有文件计入 covered(须经磁盘路径映射换算到本地绝对路径);
         os.walk 锚点后减去 covered,剩余未覆盖项即为可安全删除的冗余候选。
-        结果落盘 DATA_LOCAL。"""
+        结果落盘 DATA_LOCAL。
+
+        v1.2.7 重要修正:
+          原实现 anchors dict 的 key 是 _map_remote_to_local 映射后的"本地"
+          路径, 在容器内看不到 (典型 NAS btrfs 同子卷 mountinfo 源端是块
+          设备), _collect_covered 第 1015 行 os.path.isdir() 直接返回,
+          锚点进不到 anchors -> roots=[] -> removables=[] -> 0 候选.
+        改为: roots 与 covered 分离, roots 始终用 map 后的"容器视角"路径
+          (即便容器看不到也让 _compare_local_trees 决定要不要 walk);
+          covered 只在容器内可见时才收集, 避免 covered 集跟 walk 集
+          空间不一致导致"全空集 -> 全文件都是候选"的反向极端。
+        """
         if self._scanning:
             logger.info("另有扫描正在执行,本次本地扫描跳过")
             return
@@ -949,8 +960,11 @@ class SeedStats(_PluginBase):
             lock.acquire()
             self._scanning = True
             warn: List[str] = []
-            # 本地锚点目录 -> 该根下已覆盖(种子占用)的本地绝对路径集
-            anchors: Dict[str, set] = {}
+            # 所有候选锚点(容器可见 + 不可见, 都会传给 _compare_local_trees)
+            roots: List[str] = []
+            roots_seen: set = set()
+            # 仅"容器内可见"的 anchor -> 该根下已覆盖(种子占用)的本地绝对路径集
+            anchors_visible: Dict[str, set] = {}
             try:
                 active = self.get_active_services()
                 for name, svc in (active or {}).items():
@@ -963,15 +977,15 @@ class SeedStats(_PluginBase):
                             warn.append(f"{name}:读取种子失败,跳过该下载器")
                             continue
                         for t in torrents or []:
-                            self._collect_covered(client, d_type, t,
-                                                  anchors, warn)
+                            self._collect_covered(
+                                client, d_type, t, roots, roots_seen,
+                                anchors_visible, warn)
                     except Exception as e:
                         warn.append(f"{name}:遍历种子异常:{e}")
             except Exception as e:
                 warn.append(f"整体下载器访问异常:{e}")
-            roots = list(anchors.keys())
             removables, tree, empty_dirs = self._compare_local_trees(
-                roots, anchors, exclude=self._exclude_paths)
+                roots, anchors_visible, exclude=self._exclude_paths)
             todo = [float(v.get("size", 0)) for v in removables]
             self.save_data(self.DATA_LOCAL, {
                 "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -995,9 +1009,16 @@ class SeedStats(_PluginBase):
                 pass
 
     def _collect_covered(self, client: Any, d_type: str, t: Any,
-                         anchors: Dict[str, set], warn: List[str]) -> None:
-        """为单个种子取其磁盘根(remote 保存目录),换算为本地锚点;
-        再从下载器取该种子文件列表,逐条映射到本地绝对路径后并入锚点的 covered 集。"""
+                         roots: List[str], roots_seen: set,
+                         anchors_visible: Dict[str, set],
+                         warn: List[str]) -> None:
+        """为单个种子取其磁盘根(remote 保存目录),换算为本地锚点。
+        v1.2.7: roots 与 anchors_visible 分开管理:
+          - roots: 始终记录每个种子的容器视角锚点(去重);即便容器看不见
+            也会传给 _compare_local_trees, 由它决定 os.walk 能否跑通
+          - anchors_visible: 仅当 anchor 容器内可见时收集 covered 文件;
+            避免 covered 集跟 walk 集不在同一 inode 命名空间
+        """
         try:
             # 种子保存根(remote 可见)
             if d_type == "qbittorrent":
@@ -1012,15 +1033,23 @@ class SeedStats(_PluginBase):
                 warn.append(f"{getattr(t,'name','?')}:路径 {remote_root} "
                             f"未在磁盘映射中命中,不参与本地对比")
                 return
-            if not os.path.isdir(anchor):
-                warn.append(f"{anchor}:本地锚点不存在,跳过")
-                return
             if self._in_exclude(anchor):
                 return
-            covered = anchors.setdefault(anchor, set())
-            for local_file in self._fetch_streams_local(client, d_type, t):
-                if local_file:
-                    covered.add(local_file)
+            # 始终记录到 roots(去重),让 _compare_local_trees 决定怎么处理
+            if anchor not in roots_seen:
+                roots.append(anchor)
+                roots_seen.add(anchor)
+            # 仅当容器内实际可见时才收集 covered (否则 collected 的路径
+            # 跟 os.walk 出来的不在同一个 inode 命名空间, 比不出结果)
+            if os.path.isdir(anchor):
+                covered = anchors_visible.setdefault(anchor, set())
+                for local_file in self._fetch_streams_local(client, d_type, t):
+                    if local_file:
+                        covered.add(local_file)
+            else:
+                # 容器内看不到, 不报错 —— 常见于 NAS 路径,
+                # _compare_local_trees 会用 remote 原值再试一次
+                pass
         except Exception as e:
             warn.append(f"收集种子覆盖文件出错:{e}")
 
@@ -1175,16 +1204,51 @@ class SeedStats(_PluginBase):
                              exclude: Optional[List[str]] = None) -> tuple:
         """在每个本地根下 os.walk;凡文件不在该根 covered 绝对路径集合的,
         标记为可删候选(记录绝对路径+大小+相对根)。同时列出空目录。
-        返回 (removables, tree, empty_dirs)。exclude 用于跳过的本地前缀。"""
+        返回 (removables, tree, empty_dirs)。exclude 用于跳过的本地前缀。
+
+        v1.2.7: roots 里可能有容器内 os.path.isdir() == False 的项
+          (NAS 宿主路径, 容器 namespace 看不到), 原版直接 continue -> 漏掉
+          这些锚点下的冗余文件. 改为:
+          - 先尝试用原 root 走 os.walk
+          - 失败(OSError)再尝试用 remote 原值 (回退到 path_map 前)
+          - 还失败则跳过, 但累计到 warnings 由前端展示
+        """
         exclude = exclude or []
         removables: List[dict] = []
         tree: List[dict] = []
         empty_dirs: List[str] = []
+        warnings_extra: List[str] = []
+        # 容器内可 walk 的 root -> 直接走
+        # 容器内不可见但可能存在的 root -> 试 remote 原值
+        # 注: cover_map 仅含容器可见 root 的 covered 集, 对 fallback 走的
+        # remote 原值没有 covered, 这些 root 会全列候选 (即"看到的全部
+        # 不是种子的文件") —— 这是保守做法, 不会误删种子内文件
+        def _safe_walk_base(root: str) -> Optional[str]:
+            """返回可用于 os.walk 的真实可访问目录, 失败 None."""
+            if os.path.isdir(root):
+                return os.path.normpath(root)
+            # fallback: 把容器内的 path_map 还原回 remote 原值
+            # 这里通过反向遍历 path_map 找含 root 的 remote 键 (近似)
+            remote_orig = None
+            for rp, lp in self._path_map.items():
+                rp_n = rp.replace("\\", "/").rstrip("/")
+                lp_n = lp.replace("\\", "/").rstrip("/")
+                if lp_n and (root == lp_n or root.startswith(lp_n + "/")):
+                    suf = root[len(lp_n):]
+                    remote_orig = rp_n + suf
+                    break
+            if remote_orig and os.path.isdir(remote_orig):
+                warnings_extra.append(
+                    f"{root}:容器内不可见, 用 remote 原值 {remote_orig} walk")
+                return os.path.normpath(remote_orig)
+            return None
+
         for root in roots:
             covered = cover_map.get(root) or set()
-            if not os.path.isdir(root):
+            base = _safe_walk_base(root)
+            if not base:
+                warnings_extra.append(f"{root}:容器内不可见且无 remote 回退, 跳过")
                 continue
-            base = os.path.normpath(root)
             for dirpath, dirnames, filenames in os.walk(base):
                 # 递归排除
                 dirnames[:] = [
@@ -1208,18 +1272,16 @@ class SeedStats(_PluginBase):
                     })
                     tree.append({"path": full, "rel": rel if rel != "." else "",
                                  "name": fn, "size": sz, "kind": "file"})
-                # 目录是否空(相对根)
-                subdirs = dirnames or []
-                not_empty = bool(filenames)
-                # 剪枝空目录:走完后若无任何非候选子项则报空目录
         # 自动发现全空目录:扫描所有根下空目录(无文件也无子目录遗留)
         for root in roots:
-            if not os.path.isdir(root):
+            base = _safe_walk_base(root)
+            if not base:
                 continue
-            base = os.path.normpath(root)
             for dirpath, dirnames, filenames in os.walk(base, topdown=False):
                 if not dirnames and not filenames:
                     empty_dirs.append(dirpath)
+        if warnings_extra:
+            logger.info("本地对比回退信息: " + "; ".join(warnings_extra[:5]))
         # 合并 candidate 类型辅助
         removable_sorted = sorted(removables, key=lambda x: -x.get("size", 0))
         return removable_sorted, tree, empty_dirs

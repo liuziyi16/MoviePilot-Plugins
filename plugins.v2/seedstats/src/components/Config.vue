@@ -13,19 +13,19 @@
     <v-alert v-if="error" type="error" class="mb-4" variant="tonal">{{ error }}</v-alert>
 
     <div class="text-subtitle-1 font-weight-bold mt-2 mb-2">基本设置</div>
-    <v-card variant="outlined" class="pa-3">
-      <div class="d-flex flex-wrap ga-4 align-center">
+    <v-card variant="outlined" class="pa-2">
+      <div class="d-flex flex-wrap ga-3 align-center">
         <v-switch v-model="config.enabled" label="启用插件" color="primary"
-          density="compact" hide-details inset
+          density="compact" hide-details inset class="ss-tiny-switch"
           style="min-width: 110px"></v-switch>
         <v-divider vertical class="mx-1"></v-divider>
         <v-switch v-model="config.local_scan" label="每日本地对比" color="primary"
-          density="compact" hide-details inset
+          density="compact" hide-details inset class="ss-tiny-switch"
           title="定时对比磁盘,生成可删候选清单(不会自动删)"
           style="min-width: 130px"></v-switch>
         <v-divider vertical class="mx-1"></v-divider>
         <v-switch v-model="config.notify" label="扫描完成通知" color="primary"
-          density="compact" hide-details inset
+          density="compact" hide-details inset class="ss-tiny-switch"
           title="统计/对比完成后的推送提醒"
           style="min-width: 120px"></v-switch>
       </div>
@@ -222,6 +222,23 @@
   margin: -16px -16px 8px;
   padding: 12px 16px 8px;
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+/* 三个开关压缩: density=compact 在 v3 是 32px; 进一步缩到 ~26px
+   (label 字号 + 轨道缩小, 用户嫌"按钮上下宽度太大"由此降一档) */
+.ss-tiny-switch :deep(.v-switch__track) {
+  height: 16px;
+  width: 32px;
+}
+.ss-tiny-switch :deep(.v-switch__thumb) {
+  height: 12px;
+  width: 12px;
+}
+.ss-tiny-switch :deep(.v-label) {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.ss-tiny-switch {
+  min-height: 28px;
 }
 </style>
 

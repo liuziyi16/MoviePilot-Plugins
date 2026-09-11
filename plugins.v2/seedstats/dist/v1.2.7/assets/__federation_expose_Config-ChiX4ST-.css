@@ -1,0 +1,15 @@
+
+.ss-sticky-bar[data-v-44445290] {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgb(var(--v-theme-surface));
+  margin: -16px -16px 8px;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+/* 三个开关压缩: density=compact 在 v3 是 32px; 进一步缩到 ~26px
+   (label 字号 + 轨道缩小, 用户嫌"按钮上下宽度太大"由此降一档) */
+.ss-tiny-switch[data-v-44445290] {
+  min-height: 28px;
+}

@@ -9,7 +9,7 @@ const _hoisted_1 = {
   style: {"padding":"16px"}
 };
 const _hoisted_2 = { class: "d-flex align-center ga-2 ss-sticky-bar" };
-const _hoisted_3 = { class: "d-flex flex-wrap ga-4 align-center" };
+const _hoisted_3 = { class: "d-flex flex-wrap ga-3 align-center" };
 const _hoisted_4 = { class: "d-flex align-center mb-1" };
 const _hoisted_5 = { class: "text-body-2" };
 const _hoisted_6 = { class: "text-body-2 text-medium-emphasis" };
@@ -386,7 +386,7 @@ return (_ctx, _cache) => {
     _cache[49] || (_cache[49] = _createElementVNode("div", { class: "text-subtitle-1 font-weight-bold mt-2 mb-2" }, "基本设置", -1)),
     _createVNode(_component_v_card, {
       variant: "outlined",
-      class: "pa-3"
+      class: "pa-2"
     }, {
       default: _withCtx(() => [
         _createElementVNode("div", _hoisted_3, [
@@ -398,6 +398,7 @@ return (_ctx, _cache) => {
             density: "compact",
             "hide-details": "",
             inset: "",
+            class: "ss-tiny-switch",
             style: {"min-width":"110px"}
           }, null, 8, ["modelValue"]),
           _createVNode(_component_v_divider, {
@@ -412,6 +413,7 @@ return (_ctx, _cache) => {
             density: "compact",
             "hide-details": "",
             inset: "",
+            class: "ss-tiny-switch",
             title: "定时对比磁盘,生成可删候选清单(不会自动删)",
             style: {"min-width":"130px"}
           }, null, 8, ["modelValue"]),
@@ -427,6 +429,7 @@ return (_ctx, _cache) => {
             density: "compact",
             "hide-details": "",
             inset: "",
+            class: "ss-tiny-switch",
             title: "统计/对比完成后的推送提醒",
             style: {"min-width":"120px"}
           }, null, 8, ["modelValue"])
@@ -993,6 +996,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-9c1e2771"]]);
+const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-44445290"]]);
 
 export { Config as default };
